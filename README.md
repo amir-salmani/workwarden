@@ -5,7 +5,7 @@ A Bitwarden-client-compatible server on Cloudflare Workers, aimed at
 
 **Status: feasibility only. No server code yet.** Do not point a client at this.
 
-Read [`docs/FEASIBILITY.md`](docs/FEASIBILITY.md) before writing any code — it
+Read [`docs/FEASIBILITY.md`](docs/FEASIBILITY.md) and [`docs/STORAGE.md`](docs/STORAGE.md) before writing any code — it
 decides two design questions that are expensive to reverse later (server-side
 KDF cost, and how `/sync` is served), and it documents that two mature projects
 already occupy this niche.
