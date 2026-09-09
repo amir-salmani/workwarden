@@ -13,17 +13,22 @@
     "test": "vitest run",
     "routes": "node scripts/route-surface.mjs",
     "routes:check": "node scripts/route-surface.mjs --check",
+    "migrate": "dbmate --no-dump-schema up",
+    "schema": "sh scripts/schema-dump.sh",
     "cf-typegen": "wrangler types"
   },
   "dependencies": {
     "hono": "^4.13.7",
     "jose": "^6.2.12",
+    "postgres": "^3.4.9",
     "zod": "^4.6.0"
   },
   "devDependencies": {
     "@biomejs/biome": "^2.5.12",
+    "@bitwarden/cli": "^2026.6.0",
     "@cloudflare/vitest-pool-workers": "^0.22.0",
     "@types/node": "^22.20.2",
+    "dbmate": "^2.35.1",
     "typescript": "^7.0.2",
     "vitest": "^4.1.0",
     "wrangler": "^4.130.0"

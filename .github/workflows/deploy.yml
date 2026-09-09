@@ -23,10 +23,41 @@ jobs:
           cache: npm
       - run: npm ci
 
-      # `dbmate up` goes here in Phase 1, before the deploy.
+      - name: Migrate
+        run: npm run migrate
+        env:
+          DATABASE_URL: ${{ secrets.NEON_DATABASE_URL }}
+
+      # Hyperdrive caching lives on the Cloudflare config, not in this repo, so
+      # nothing here would notice it being turned back on. It must stay off: a
+      # cached read once made a freshly registered user unable to log in, and
+      # would keep a revoked session alive past its revocation.
+      - name: Hyperdrive query caching is disabled
+        run: |
+          npx wrangler hyperdrive get "$HYPERDRIVE_ID" > /tmp/hd.json
+          node -e '
+            const c = require("/tmp/hd.json").caching
+            if (c?.disabled !== true) {
+              console.error("Hyperdrive caching is enabled. Run: wrangler hyperdrive update $HYPERDRIVE_ID --caching-disabled")
+              process.exit(1)
+            }
+            console.log("caching disabled: ok")
+          '
+        env:
+          HYPERDRIVE_ID: eace91137a9649659e5fcd5011063257
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
 
       - uses: cloudflare/wrangler-action@ebbaa1584979971c8614a24965b4405ff95890e0 # v4.0.0
         with:
           apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
           command: deploy
+
+      # Proves the Worker, the Hyperdrive config and Neon are wired to each
+      # other. Creates a real account, syncs a real cipher, deletes both.
+      - name: Smoke test
+        run: node scripts/smoke.mjs "$WORKER_URL"
+        env:
+          WORKER_URL: https://workwarden.cfworkerofabrinocloud.workers.dev
+          DATABASE_URL: ${{ secrets.NEON_DATABASE_URL }}

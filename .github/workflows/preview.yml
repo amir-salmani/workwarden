@@ -1,14 +1,25 @@
+# Each pull request gets its own Neon branch and its own Hyperdrive config, so a
+# preview never touches production data. preview-cleanup.yml removes both when
+# the PR closes.
 name: preview
 
 on:
   pull_request:
+    types: [opened, synchronize, reopened]
 
 permissions:
   contents: read
   pull-requests: write
 
+env:
+  CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+  CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+  NEON_API_KEY: ${{ secrets.NEON_API_KEY }}
+  NEON_PROJECT_ID: flat-heart-18148850
+  RESOURCE: pr-${{ github.event.number }}
+
 jobs:
-  upload:
+  preview:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -18,11 +29,76 @@ jobs:
           cache: npm
       - run: npm ci
 
-      - uses: cloudflare/wrangler-action@ebbaa1584979971c8614a24965b4405ff95890e0 # v4.0.0
+      # A branch is a copy-on-write clone, so this is near-instant and isolated.
+      - name: Neon branch for this PR
+        id: neon
+        run: |
+          uri=$(node scripts/neon-branch.mjs create "$RESOURCE")
+          echo "::add-mask::$uri"
+          echo "uri=$uri" >> "$GITHUB_OUTPUT"
+
+      - name: Migrate the PR branch
+        run: npm run migrate
+        env:
+          DATABASE_URL: ${{ steps.neon.outputs.uri }}
+
+      - name: Hyperdrive config for this PR
+        id: hyperdrive
+        run: |
+          id=$(node scripts/hyperdrive.mjs upsert "workwarden-$RESOURCE" "$URI")
+          echo "id=$id" >> "$GITHUB_OUTPUT"
+        env:
+          URI: ${{ steps.neon.outputs.uri }}
+
+      # The binding id is baked into wrangler.jsonc, so point this upload at the
+      # PR's config instead of production's.
+      - name: Point the binding at the PR config
+        run: |
+          node -e '
+            const fs = require("node:fs")
+            const f = "wrangler.jsonc"
+            const s = fs.readFileSync(f, "utf8")
+            const next = s.replace(/"id": "[0-9a-f]{32}"/, `"id": "${process.env.HYPERDRIVE_ID}"`)
+            if (next === s) throw new Error("did not find the Hyperdrive id to replace")
+            fs.writeFileSync(f, next)
+          '
+        env:
+          HYPERDRIVE_ID: ${{ steps.hyperdrive.outputs.id }}
+
+      - name: Upload a preview version
+        id: upload
+        uses: cloudflare/wrangler-action@ebbaa1584979971c8614a24965b4405ff95890e0 # v4.0.0
         with:
           apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
           command: versions upload
 
-      # The Bitwarden CLI compat suite runs here from Phase 1. Phase 0 cannot
-      # complete a client login, so there is nothing yet for it to assert.
+      - name: Resolve the preview URL
+        id: url
+        run: |
+          url="${{ steps.upload.outputs.deployment-url }}"
+          if [ -z "$url" ]; then
+            url=$(printf '%s' "$OUTPUT" | grep -oE 'https://[a-z0-9-]+\.workers\.dev' | head -1)
+          fi
+          [ -n "$url" ] || { echo "could not determine the preview URL"; exit 1; }
+          echo "url=$url" >> "$GITHUB_OUTPUT"
+        env:
+          OUTPUT: ${{ steps.upload.outputs.command-output }}
+
+      - name: Smoke test the preview
+        run: node scripts/smoke.mjs "${{ steps.url.outputs.url }}"
+        env:
+          DATABASE_URL: ${{ steps.neon.outputs.uri }}
+
+      - name: Comment the preview URL
+        uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9.0.0
+        with:
+          script: |
+            const url = '${{ steps.url.outputs.url }}'
+            const body = `Preview: ${url}\n\nOwn Neon branch \`${process.env.RESOURCE}\`, migrated and smoke-tested. Removed when this PR closes.`
+            const { data: comments } = await github.rest.issues.listComments({
+              ...context.repo, issue_number: context.issue.number,
+            })
+            const mine = comments.find((c) => c.user.type === 'Bot' && c.body.startsWith('Preview:'))
+            if (mine) await github.rest.issues.updateComment({ ...context.repo, comment_id: mine.id, body })
+            else await github.rest.issues.createComment({ ...context.repo, issue_number: context.issue.number, body })

@@ -1,9 +1,3 @@
 # Copy to .dev.vars (gitignored). Real values are not in this repo.
 AUTH_PEPPER=
 JWT_SECRET=
-
-# Phase 0 spike only -- one hardcoded user, no database.
-# SPIKE_EMAIL is the login; SPIKE_AUTH_HASH is deriveAuthHash() of its
-# client-side master password hash. Both go away in Phase 1.
-SPIKE_EMAIL=
-SPIKE_AUTH_HASH=
