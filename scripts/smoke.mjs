@@ -24,7 +24,30 @@ const step = async (name, fn) => {
   return res
 }
 
+// A deploy takes a few seconds to reach every edge, so running straight after
+// `wrangler deploy` can still hit the previous version. Wait for the route to
+// exist rather than reporting a rollout delay as a failure. 404 means old code;
+// 400 means the route is there and rejected the empty body.
+const ready = async () => {
+  const deadline = Date.now() + 120_000
+  for (let attempt = 1; ; attempt++) {
+    const res = await fetch(`${base}/api/accounts/register`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: '{}',
+    })
+    if (res.status !== 404) {
+      console.log(`ok   deployment is live (attempt ${attempt})`)
+      return
+    }
+    if (Date.now() > deadline)
+      throw new Error('routes never appeared; deployment did not propagate')
+    await new Promise((r) => setTimeout(r, 3000))
+  }
+}
+
 await step('config', () => fetch(`${base}/api/config`))
+await ready()
 
 await step('register', () =>
   fetch(`${base}/api/accounts/register`, {
