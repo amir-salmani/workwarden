@@ -19,6 +19,8 @@ Read in order. Each one answers a question the next one assumes.
   Hyperdrive. Decided on the exit path, not on capacity.
 - [STACK.md](STACK.md) — *What is it built out of?* TypeScript, Hono, raw SQL.
   Draft until a Phase 0 spike ratifies it.
+- [PHASE0.md](PHASE0.md) — *How do we get real CPU numbers?* Not from inside the
+  Worker: workerd freezes the clock during execution.
 
 [generated/](generated/index.md) is regenerable from source and is not authored.
 

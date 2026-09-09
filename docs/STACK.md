@@ -9,6 +9,7 @@ tags: [workwarden, cloudflare, workers, stack]
 related:
   - FEASIBILITY.md
   - STORAGE.md
+  - PHASE0.md
 ---
 
 # workwarden — tech stack
@@ -114,11 +115,14 @@ repo, SRI-pinned, under its own license.
 
 GitHub Actions, three workflows:
 
-| Workflow | Trigger | Does |
-|---|---|---|
-| `ci` | PR | Biome, `tsc --noEmit`, vitest-pool-workers, `dbmate up` against a Neon branch, route-surface diff |
-| `preview` | PR | `wrangler versions upload`, then the `bw` compat suite against the preview URL |
-| `deploy` | push to default branch | `dbmate up` against production, then `wrangler deploy` |
+| Workflow | Trigger | Does | Phase 0 |
+|---|---|---|---|
+| `ci` | PR | Biome, `tsc --noEmit`, vitest-pool-workers, route-surface diff, prod-dep audit | all of it |
+| `ci` | PR | `dbmate up` against a Neon branch | Phase 1 |
+| `preview` | PR | `wrangler versions upload` | yes |
+| `preview` | PR | `bw` compat suite against the preview URL | Phase 1 — no client login exists yet |
+| `deploy` | push to default branch | `wrangler deploy` | yes |
+| `deploy` | push to default branch | `dbmate up` against production | Phase 1 |
 
 Supply chain, which matters more here than in a normal repo: every action pinned
 to a full commit SHA, minimal `permissions:` per job, `npm ci` against a
@@ -141,7 +145,8 @@ before there is code to protect:
   100+ Bitwarden routes, a silently dropped route is the failure mode that stays
   green. This net comes first.
 - **The `bw` compat suite** is the behavioural net (§2.4).
-- **`okf lint` as a pre-commit hook** over `docs/`.
+- **`okf lint` and the route net as a pre-commit hook** — `.githooks/pre-commit`,
+  enabled with `git config core.hooksPath .githooks`.
 - One concern per file from the first commit. No `src/index.ts` that grows into
   a directory in disguise.
 

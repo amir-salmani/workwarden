@@ -1,0 +1,9 @@
+#!/bin/sh
+# Enable with: git config core.hooksPath .githooks
+set -e
+
+node scripts/route-surface.mjs --check
+
+# OKF lint is a machine-local skill, not a dependency of this repo.
+okf=~/.claude/skills/okf/scripts/okf.py
+[ -f "$okf" ] && python3 "$okf" lint --quiet docs
