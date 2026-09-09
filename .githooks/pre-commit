@@ -2,6 +2,7 @@
 # Enable with: git config core.hooksPath .githooks
 set -e
 
+npx tsc --noEmit
 node scripts/route-surface.mjs --check
 
 # OKF lint is a machine-local skill, not a dependency of this repo.

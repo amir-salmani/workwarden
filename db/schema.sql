@@ -43,6 +43,15 @@ CREATE EXTENSION IF NOT EXISTS pgcrypto WITH SCHEMA public;
 COMMENT ON EXTENSION pgcrypto IS 'cryptographic functions';
 
 
+--
+-- Name: bw_timestamp(timestamp with time zone); Type: FUNCTION; Schema: public; Owner: -
+--
+
+CREATE FUNCTION public.bw_timestamp(t timestamp with time zone) RETURNS text
+    LANGUAGE sql IMMUTABLE
+    AS $$ select to_char(t at time zone 'utc', 'YYYY-MM-DD"T"HH24:MI:SS.US"Z"') $$;
+
+
 SET default_tablespace = '';
 
 SET default_table_access_method = heap;
@@ -63,6 +72,23 @@ CREATE TABLE public.ciphers (
     revision_date timestamp with time zone DEFAULT now() NOT NULL,
     deleted_at timestamp with time zone
 );
+
+
+--
+-- Name: cipher_details; Type: VIEW; Schema: public; Owner: -
+--
+
+CREATE VIEW public.cipher_details AS
+ SELECT id,
+    user_id,
+    folder_id,
+    deleted_at,
+    (data || jsonb_build_object('id', id, 'organizationId', NULL::unknown, 'folderId', folder_id, 'type', type, 'favorite', favorite, 'reprompt', reprompt, 'edit', true, 'viewPassword', true, 'collectionIds', jsonb_build_array(), 'creationDate', public.bw_timestamp(created_at), 'revisionDate', public.bw_timestamp(revision_date), 'deletedDate',
+        CASE
+            WHEN (deleted_at IS NULL) THEN NULL::jsonb
+            ELSE to_jsonb(public.bw_timestamp(deleted_at))
+        END, 'object', 'cipherDetails')) AS "json"
+   FROM public.ciphers c;
 
 
 --
@@ -93,6 +119,17 @@ CREATE TABLE public.folders (
     created_at timestamp with time zone DEFAULT now() NOT NULL,
     revision_date timestamp with time zone DEFAULT now() NOT NULL
 );
+
+
+--
+-- Name: folder_details; Type: VIEW; Schema: public; Owner: -
+--
+
+CREATE VIEW public.folder_details AS
+ SELECT id,
+    user_id,
+    jsonb_build_object('id', id, 'name', name, 'revisionDate', public.bw_timestamp(revision_date), 'object', 'folder') AS "json"
+   FROM public.folders f;
 
 
 --
@@ -249,4 +286,5 @@ ALTER TABLE ONLY public.folders
 --
 
 INSERT INTO public.schema_migrations (version) VALUES
-    ('20260910000001');
+    ('20260910000001'),
+    ('20260910000002');

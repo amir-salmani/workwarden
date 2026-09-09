@@ -2,6 +2,10 @@ import { cloudflareTest } from '@cloudflare/vitest-pool-workers'
 import { defineConfig } from 'vitest/config'
 
 export default defineConfig({
+  // Every test file shares one Postgres, and resetDatabase() truncates it, so
+  // running files in parallel lets one wipe another's rows mid-test. Revisit
+  // with a schema per worker if the suite gets slow.
+  test: { fileParallelism: false },
   plugins: [
     cloudflareTest({
       wrangler: { configPath: './wrangler.jsonc' },
