@@ -1,3 +1,16 @@
+---
+type: Decision Record
+title: Where the workwarden vault lives
+description: D1 or external Postgres — decided on the exit path, not on capacity.
+status: settled
+created: 2026-08-30
+timestamp: 2026-08-30
+tags: [workwarden, storage, d1, postgres, neon]
+related:
+  - FEASIBILITY.md
+  - STACK.md
+---
+
 # Where the vault actually lives
 
 Follow-on to [FEASIBILITY.md](FEASIBILITY.md). Question: should storage be

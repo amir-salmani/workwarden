@@ -1,3 +1,16 @@
+---
+type: Feasibility Report
+title: workwarden feasibility
+description: Whether a Bitwarden-compatible server fits the Workers free tier, and whether the niche is already taken.
+status: settled
+created: 2026-08-30
+timestamp: 2026-08-30
+tags: [workwarden, cloudflare, workers, bitwarden]
+related:
+  - STORAGE.md
+  - STACK.md
+---
+
 # workwarden — feasibility
 
 Target: a Bitwarden-client-compatible server on Cloudflare Workers free tier,
