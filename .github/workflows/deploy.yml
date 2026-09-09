@@ -53,3 +53,11 @@ jobs:
           apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
           command: deploy
+
+      # Proves the Worker, the Hyperdrive config and Neon are wired to each
+      # other. Creates a real account, syncs a real cipher, deletes both.
+      - name: Smoke test
+        run: node scripts/smoke.mjs "$WORKER_URL"
+        env:
+          WORKER_URL: https://workwarden.cfworkerofabrinocloud.workers.dev
+          DATABASE_URL: ${{ secrets.NEON_DATABASE_URL }}
