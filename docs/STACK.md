@@ -182,8 +182,8 @@ before there is code to protect:
 ### A conflict worth naming
 
 "`vault.amirsalmani.com` is the product" and
-[FEASIBILITY.md §2.4](FEASIBILITY.md)'s "`vault.rhinocloud.ir` stays the system
-of record until workwarden has proven itself over months" are not the same date.
-Pointing the domain at workwarden early is fine. A real vault living there is
+[FEASIBILITY.md §2.4](FEASIBILITY.md)'s "the existing Vaultwarden instance stays
+the system of record until workwarden has proven itself over months" are not the
+same date. Pointing the domain at workwarden early is fine. A real vault living there is
 not, until the off-Cloudflare export exists — which moves that export from
 Phase 2 into Phase 1.

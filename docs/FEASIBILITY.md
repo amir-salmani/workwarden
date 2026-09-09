@@ -259,9 +259,9 @@ Cloudflare as untrusted infrastructure that may vanish without notice:
 
 - Automated encrypted export to somewhere outside Cloudflare, from day one, in
   the standard Bitwarden JSON format — not a D1 dump.
-- Never make this the only copy of your vault. The existing Vaultwarden at
-  `vault.rhinocloud.ir` stays the system of record until workwarden has proven
-  itself over months.
+- Never make this the only copy of your vault. The existing self-hosted
+  Vaultwarden stays the system of record until workwarden has proven itself over
+  months.
 - Consider whether a project intended as a public phenomenon should be published
   under a hosting account with this exposure.
 
