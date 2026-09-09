@@ -8,7 +8,7 @@
 set -e
 : "${DATABASE_URL:?set DATABASE_URL}"
 
-docker run --rm --network host postgres:17-alpine \
+docker run --rm --network host postgres:18-alpine \
   pg_dump --schema-only --no-owner --no-privileges --dbname "$DATABASE_URL" \
   | grep -vE '^\\(un)?restrict ' \
   > db/schema.sql
