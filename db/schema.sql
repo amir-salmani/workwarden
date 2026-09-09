@@ -2,7 +2,6 @@
 -- PostgreSQL database dump
 --
 
-\restrict Jq8XvfY0X37kI6fk1KsaltEWYxKT8jzJqT16PJZNW4j2d5wK6HN3bGotrsNcseM
 
 -- Dumped from database version 17.11
 -- Dumped by pg_dump version 17.11
@@ -282,5 +281,4 @@ ALTER TABLE ONLY public.folders
 -- PostgreSQL database dump complete
 --
 
-\unrestrict Jq8XvfY0X37kI6fk1KsaltEWYxKT8jzJqT16PJZNW4j2d5wK6HN3bGotrsNcseM
 
