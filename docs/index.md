@@ -20,4 +20,6 @@ Read in order. Each one answers a question the next one assumes.
 - [STACK.md](STACK.md) — *What is it built out of?* TypeScript, Hono, raw SQL.
   Draft until a Phase 0 spike ratifies it.
 
-Nothing here is implemented yet. No server code exists.
+[generated/](generated/index.md) is regenerable from source and is not authored.
+
+Phase 0 is scaffolded; nothing is deployed.
