@@ -1,7 +1,11 @@
-\restrict dbmate
+--
+-- PostgreSQL database dump
+--
+
+\restrict Jq8XvfY0X37kI6fk1KsaltEWYxKT8jzJqT16PJZNW4j2d5wK6HN3bGotrsNcseM
 
 -- Dumped from database version 17.11
--- Dumped by pg_dump version 18.6 (Ubuntu 18.6-0ubuntu0.26.04.1)
+-- Dumped by pg_dump version 17.11
 
 SET statement_timeout = 0;
 SET lock_timeout = 0;
@@ -278,13 +282,5 @@ ALTER TABLE ONLY public.folders
 -- PostgreSQL database dump complete
 --
 
-\unrestrict dbmate
+\unrestrict Jq8XvfY0X37kI6fk1KsaltEWYxKT8jzJqT16PJZNW4j2d5wK6HN3bGotrsNcseM
 
-
---
--- Dbmate schema migrations
---
-
-INSERT INTO public.schema_migrations (version) VALUES
-    ('20260910000001'),
-    ('20260910000002');

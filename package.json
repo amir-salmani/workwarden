@@ -13,6 +13,8 @@
     "test": "vitest run",
     "routes": "node scripts/route-surface.mjs",
     "routes:check": "node scripts/route-surface.mjs --check",
+    "migrate": "dbmate --no-dump-schema up",
+    "schema": "sh scripts/schema-dump.sh",
     "cf-typegen": "wrangler types"
   },
   "dependencies": {

@@ -63,7 +63,12 @@ export async function makeAccount(email, password, iterations = 600_000) {
   const protectedKey = await encrypt(symmetric, stretchedEnc, stretchedMac)
 
   const pair = await crypto.subtle.generateKey(
-    { name: 'RSA-OAEP', modulusLength: 2048, publicExponent: new Uint8Array([1, 0, 1]), hash: 'SHA-1' },
+    {
+      name: 'RSA-OAEP',
+      modulusLength: 2048,
+      publicExponent: new Uint8Array([1, 0, 1]),
+      hash: 'SHA-1',
+    },
     true,
     ['encrypt', 'decrypt'],
   )

@@ -35,11 +35,11 @@ jobs:
       - run: npm ci
 
       - name: Migrate
-        run: npx dbmate --no-dump-schema up
+        run: npm run migrate
 
       - name: Schema is in sync with the migrations
         run: |
-          npx dbmate dump
+          npm run schema
           git diff --exit-code db/schema.sql
 
       - name: Lint and format
