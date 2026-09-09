@@ -2,6 +2,8 @@
 // them. Declared here instead, and merged into both the global Env and the
 // Cloudflare.Env that `cloudflare:test` uses, so there is one source of truth.
 type WorkwardenSecrets = {
+  HYPERDRIVE: Hyperdrive
+
   AUTH_PEPPER: string
   JWT_SECRET: string
 

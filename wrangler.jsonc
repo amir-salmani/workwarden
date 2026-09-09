@@ -9,6 +9,15 @@
   "compatibility_flags": ["nodejs_compat"],
   // cpuTime is only readable from invocation logs -- workerd freezes clocks
   // inside the isolate, so Phase 0 cannot time itself. See docs/PHASE0.md.
+  // id is a placeholder until a Neon database exists -- local dev and tests use
+  // localConnectionString and never touch it. Deploys will fail until it is real.
+  "hyperdrive": [
+    {
+      "binding": "HYPERDRIVE",
+      "id": "0000000000000000000000000000000000000000000000000000000000000000",
+      "localConnectionString": "postgresql://postgres:dev@127.0.0.1:5432/workwarden"
+    }
+  ],
   "observability": {
     "enabled": true,
     "logs": { "invocation_logs": true, "head_sampling_rate": 1 }

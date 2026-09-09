@@ -1,8 +1,9 @@
 import { Hono } from 'hono'
+import type { Sql } from './db.ts'
 import { config } from './routes/config.ts'
 import { identity } from './routes/identity.ts'
 
-export type App = { Bindings: Env }
+export type App = { Bindings: Env; Variables: { sql: Sql } }
 
 // Importable from plain Node so scripts/route-surface.mjs can read app.routes
 // off the real app rather than regex the source.
