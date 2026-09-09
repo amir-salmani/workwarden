@@ -9,9 +9,13 @@ status: active
 
 # Route surface
 
-2 routes.
+6 routes.
 
 | Method | Path |
 |---|---|
+| GET | `/api/accounts/profile` |
+| GET | `/api/accounts/revision-date` |
 | GET | `/api/config` |
+| POST | `/api/accounts/prelogin` |
+| POST | `/api/accounts/register` |
 | POST | `/identity/connect/token` |

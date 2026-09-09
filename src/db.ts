@@ -10,16 +10,14 @@ export function connect(env: Env): Sql {
   return postgres(env.HYPERDRIVE.connectionString, { max: 5, fetch_types: false })
 }
 
-// One connection per request, closed after the response is sent. Closing inside
-// the handler would block it; waitUntil lets the response go first.
+// A client per request, never closed: Hyperdrive pools the underlying
+// connection, and workerd ties the socket to the request anyway. Calling end()
+// makes postgres.js's Cloudflare polyfill reject its detached read loop with
+// "Stream was cancelled".
 export function withDb(): MiddlewareHandler<App> {
   return async (c, next) => {
     const sql = connect(c.env)
     c.set('sql', sql)
-    try {
-      await next()
-    } finally {
-      c.executionCtx.waitUntil(sql.end())
-    }
+    await next()
   }
 }

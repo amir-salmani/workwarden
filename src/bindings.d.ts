@@ -6,10 +6,6 @@ type WorkwardenSecrets = {
 
   AUTH_PEPPER: string
   JWT_SECRET: string
-
-  // Phase 0 spike only -- one user, no database. Removed in Phase 1.
-  SPIKE_EMAIL?: string
-  SPIKE_AUTH_HASH?: string
 }
 
 interface Env extends WorkwardenSecrets {}

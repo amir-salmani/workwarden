@@ -12,8 +12,6 @@ export default defineConfig({
         bindings: {
           AUTH_PEPPER: 'test-pepper',
           JWT_SECRET: 'test-secret',
-          SPIKE_EMAIL: 'spike@example.com',
-          SPIKE_AUTH_HASH: '',
         },
       },
     }),

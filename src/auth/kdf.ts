@@ -40,3 +40,7 @@ export function constantTimeEquals(a: string, b: string): boolean {
 function base64(buf: ArrayBuffer): string {
   return btoa(String.fromCharCode(...new Uint8Array(buf)))
 }
+
+export function randomSalt(): string {
+  return base64(crypto.getRandomValues(new Uint8Array(32)).buffer)
+}
