@@ -6,6 +6,7 @@
 //
 //   node scripts/hyperdrive.mjs upsert workwarden-pr-12 "postgres://..."  -> prints the id
 //   node scripts/hyperdrive.mjs delete workwarden-pr-12
+//   node scripts/hyperdrive.mjs check  workwarden-neon                    -> exits 1 if caching is on
 const [, , action, name, connectionString] = process.argv
 const account = process.env.CLOUDFLARE_ACCOUNT_ID
 const token = process.env.CLOUDFLARE_API_TOKEN
@@ -26,6 +27,17 @@ const api = async (path, init = {}) => {
 }
 
 const existing = (await api('')).find((c) => c.name === name)
+
+if (action === 'check') {
+  if (!existing) throw new Error(`no Hyperdrive config named ${name}`)
+  if (existing.caching?.disabled !== true) {
+    throw new Error(
+      `caching is enabled on ${name}. Fix with:\n  node scripts/hyperdrive.mjs upsert ${name} "<connection-string>"`,
+    )
+  }
+  console.error(`${name}: caching disabled`)
+  process.exit(0)
+}
 
 if (action === 'delete') {
   if (!existing) {
