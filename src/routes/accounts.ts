@@ -5,6 +5,7 @@ import { deriveAuthHash, randomSalt } from '../auth/kdf.ts'
 import { requireUser } from '../auth/session.ts'
 import { apiError, insensitive } from '../http.ts'
 import { DEFAULT_KDF, findByEmail, type User } from '../users.ts'
+import { prelogin } from './prelogin.ts'
 
 export const accounts = new Hono<App>()
 
@@ -49,20 +50,7 @@ accounts.post('/register', async (c) => {
   return c.body(null, 200)
 })
 
-accounts.post('/prelogin', async (c) => {
-  const body = insensitive(await c.req.json())
-  const email = typeof body.email === 'string' ? body.email : ''
-  const user = await findByEmail(c.get('sql'), email)
-
-  // An unknown email gets the defaults rather than an error: replying "no such
-  // user" here would turn prelogin into an account-enumeration oracle.
-  return c.json({
-    kdf: user?.kdf_type ?? DEFAULT_KDF.type,
-    kdfIterations: user?.kdf_iterations ?? DEFAULT_KDF.iterations,
-    kdfMemory: user?.kdf_memory ?? null,
-    kdfParallelism: user?.kdf_parallelism ?? null,
-  })
-})
+accounts.post('/prelogin', prelogin)
 
 accounts.get('/profile', requireUser(), (c) => c.json(profile(c.get('user'))))
 

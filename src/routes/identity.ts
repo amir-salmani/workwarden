@@ -6,6 +6,7 @@ import { constantTimeEquals, deriveAuthHash } from '../auth/kdf.ts'
 import { ACCESS_TOKEN_TTL, issueAccessToken, randomToken } from '../auth/tokens.ts'
 import { withDb } from '../db.ts'
 import { findByEmail, findById, type User } from '../users.ts'
+import { prelogin } from './prelogin.ts'
 
 type Ctx = Context<App>
 
@@ -26,6 +27,9 @@ const refreshGrant = z.object({
   grant_type: z.literal('refresh_token'),
   refresh_token: z.string().min(1),
 })
+
+identity.post('/accounts/prelogin', prelogin)
+identity.post('/accounts/prelogin/password', prelogin)
 
 identity.post('/connect/token', async (c) => {
   const form = Object.fromEntries(await c.req.formData())
@@ -95,17 +99,64 @@ async function tokenResponse(
     token_type: 'Bearer',
     refresh_token: refreshToken,
     scope,
+
+    // Both casings on purpose. Clients have read these fields as PascalCase for
+    // years and newer ones read camelCase; sending one alone breaks the other.
     Key: user.akey,
+    key: user.akey,
     PrivateKey: user.private_key,
+    privateKey: user.private_key,
     Kdf: user.kdf_type,
+    kdf: user.kdf_type,
     KdfIterations: user.kdf_iterations,
+    kdfIterations: user.kdf_iterations,
     KdfMemory: user.kdf_memory,
+    kdfMemory: user.kdf_memory,
     KdfParallelism: user.kdf_parallelism,
+    kdfParallelism: user.kdf_parallelism,
     ResetMasterPassword: false,
+    resetMasterPassword: false,
     ForcePasswordReset: false,
+    forcePasswordReset: false,
     MasterPasswordPolicy: { object: 'masterPasswordPolicy' },
-    UserDecryptionOptions: { HasMasterPassword: true, Object: 'userDecryptionOptions' },
+    masterPasswordPolicy: { object: 'masterPasswordPolicy' },
+    UserDecryptionOptions: decryptionOptions(user),
+    userDecryptionOptions: decryptionOptions(user),
     unofficialServer: true,
+  }
+}
+
+// MasterPasswordUnlock is what newer clients turn into their account
+// cryptographic state; without it `bw login` fails after a 200. Salt is the
+// client-side KDF salt, which is the lowercased email.
+function decryptionOptions(user: User) {
+  const kdf = {
+    kdfType: user.kdf_type,
+    iterations: user.kdf_iterations,
+    memory: user.kdf_memory,
+    parallelism: user.kdf_parallelism,
+  }
+  return {
+    HasMasterPassword: true,
+    hasMasterPassword: true,
+    MasterPasswordUnlock: {
+      Kdf: kdf,
+      kdf,
+      MasterKeyEncryptedUserKey: user.akey,
+      masterKeyEncryptedUserKey: user.akey,
+      MasterKeyWrappedUserKey: user.akey,
+      masterKeyWrappedUserKey: user.akey,
+      Salt: user.email,
+      salt: user.email,
+    },
+    masterPasswordUnlock: {
+      kdf,
+      masterKeyEncryptedUserKey: user.akey,
+      masterKeyWrappedUserKey: user.akey,
+      salt: user.email,
+    },
+    Object: 'userDecryptionOptions',
+    object: 'userDecryptionOptions',
   }
 }
 
