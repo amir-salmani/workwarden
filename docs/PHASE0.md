@@ -2,7 +2,7 @@
 type: Guide
 title: Phase 0 — measuring real CPU on workerd
 description: How to get the numbers, and why the Worker cannot time itself.
-status: open
+status: settled
 created: 2026-09-10
 timestamp: 2026-09-10
 tags: [workwarden, phase0, cpu, observability]
@@ -49,27 +49,59 @@ Or the [Query Builder](https://dash.cloudflare.com/?to=/:account/workers-and-pag
 for a median across many requests. Take the median, not one sample — the first
 invocation includes isolate startup.
 
-## What to record
+## Results, 2026-09-10
 
-Deploy, then drive each endpoint enough times to get a stable median.
+Deployed to `workwarden.<subdomain>.workers.dev` and driven with curl; cpuTime
+read from `wrangler tail --format json`. Variants separated by a query string so
+the tail event can tell them apart — a 400 response still has `outcome: "ok"`,
+so outcome cannot.
 
-| | Laptop (FEASIBILITY.md §1.2) | workerd | Verdict |
-|---|---|---|---|
-| `GET /api/config` | — | | baseline: framework + routing only |
-| `POST /identity/connect/token`, 10k iterations | 1.49 ms | | |
+| variant | n | p50 | p90 | max |
+|---|---|---|---|---|
+| `GET /api/config` | 30 | **0 ms** | 0–3 ms | 5 ms |
+| token, unsupported grant — no KDF | 70 | **0 ms** | 4 ms | 20 ms |
+| token, wrong password — KDF only | 70 | **3 ms** | 6 ms | 8 ms |
+| token, success — KDF + JWT sign | 105 | **4 ms** | 7 ms | 10 ms |
 
-The gap between the two rows is the KDF. If it lands near 1.5 ms, the peppered
-10k design in [FEASIBILITY.md §2.1](FEASIBILITY.md) holds and Phase 1 can start.
+Reading down the column isolates each cost:
 
-## The other two questions Phase 0 settles
+- **Routing, form parsing, JSON: free.** Hono does not register.
+- **Peppered 10k PBKDF2: +3 ms.**
+- **HS256 sign: +1 ms.**
+
+`cpuTime` is reported in whole milliseconds, so every figure carries ±0.5 ms of
+quantization. The 20 ms outlier is a single no-KDF request — isolate startup, not
+work. Every invocation returned `outcome: "ok"`; nothing was killed.
+
+### The laptop was optimistic by about 2×
+
+[FEASIBILITY.md §1.2](FEASIBILITY.md) measured 10k PBKDF2 at **1.49 ms** under
+Node and OpenSSL. On workerd and BoringSSL it is **3 ms**.
+
+The design holds — a 4 ms login against a 10 ms budget — but the headroom is
+**2.5×, not the 6.7× the laptop implied**, and p90 is already 7 ms.
+
+### What that implies for `/sync` (inference, not measurement)
+
+If the same ~2× factor applies to `JSON.stringify`, the serialization figures in
+[FEASIBILITY.md §1.2](FEASIBILITY.md) all double, and the point where `/sync`
+exceeds budget moves from ~1,500 ciphers down to **~700**. That makes the
+cache-on-write / `json_agg` inversion in [STORAGE.md §2.2](STORAGE.md) not an
+optimization but a requirement, at a vault size a real person reaches.
+
+Unverified — V8 is the same in both places, so the factor may not carry. Measure
+it in Phase 1 rather than inheriting this number. `[unverified]`
+
+## Still unmeasured
+
+Neither of these was answered by this round. Both stay open.
 
 - **Does a Durable Object get more than 10 ms on the free plan?** Unresolved
   since [FEASIBILITY.md §1.1](FEASIBILITY.md); warden-worker's README claims the
-  offload works and the Cloudflare docs do not say. Measure it, do not inherit
-  the claim.
+  offload works and the Cloudflare docs do not say. Needs a DO to exist first.
 - **Do stock clients verify the identity token's signature?** Decides whether
-  HS256 can stay instead of Vaultwarden's RS256
-  ([STACK.md §6](STACK.md)).
+  HS256 can stay instead of Vaultwarden's RS256 ([STACK.md §6](STACK.md)).
+  Needs a client that can complete a login, so it lands in Phase 1.
 
 ## What Phase 0 is not
 

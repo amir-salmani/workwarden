@@ -2,7 +2,7 @@
 type: Decision Record
 title: workwarden tech stack
 description: What workwarden is built out of, and the four choices that were not obvious.
-status: draft
+status: active
 created: 2026-09-10
 timestamp: 2026-09-10
 tags: [workwarden, cloudflare, workers, stack]
@@ -18,7 +18,8 @@ Follows [FEASIBILITY.md](FEASIBILITY.md) (go / no-go) and
 [STORAGE.md](STORAGE.md) (where the vault lives). This one answers: what is it
 built out of.
 
-Status **draft** — proposed, not yet ratified by a Phase 0 spike.
+Phase 0 ratified the KDF choice on real workerd
+([PHASE0.md](PHASE0.md), 2026-09-10). The two entries in §6 are still open.
 
 ---
 
@@ -54,7 +55,8 @@ warden-worker is Rust ([FEASIBILITY.md §1.4](FEASIBILITY.md)). The decisive
 factor is that the one measured blocker is PBKDF2, and on Workers `crypto.subtle`
 is native BoringSSL — a WASM PBKDF2 is slower than the platform primitive, not
 faster. Rust would buy nothing on the hot path and spend the 3 MB script budget.
-`[unverified]` — Phase 0 measures the WebCrypto path on `workerd`.
+Phase 0 measured it: the peppered 10k PBKDF2 costs 3 ms on workerd against
+1.49 ms on the laptop ([PHASE0.md](PHASE0.md)). `[confirmed]`
 
 ### 2.2 Hyperdrive + wire protocol, not `@neondatabase/serverless`
 
@@ -172,9 +174,11 @@ before there is code to protect:
 - **Token signing algorithm.** Vaultwarden signs identity tokens RS256 with a
   generated keypair. Whether stock clients verify the signature or treat the
   token as opaque decides whether HS256 is available, which is cheaper per login.
-  Phase 0 finding. `[unverified]`
+  Deferred to Phase 1 — it needs a client that can complete a login.
+  HS256 costs 1 ms ([PHASE0.md](PHASE0.md)); RS256 is untested. `[unverified]`
 - **DO CPU budget on the free plan.** Carried unresolved from
-  [FEASIBILITY.md §1.1](FEASIBILITY.md). `[unverified]`
+  [FEASIBILITY.md §1.1](FEASIBILITY.md); Phase 0 did not touch it, since there is
+  no Durable Object yet. `[unverified]`
 - **Export destination.** [FEASIBILITY.md §2.4](FEASIBILITY.md) requires
   automated encrypted Bitwarden-JSON export outside Cloudflare from day one.
   *Where* is undecided.

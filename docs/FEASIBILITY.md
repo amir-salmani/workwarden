@@ -65,12 +65,15 @@ for PBKDF2. Order-of-magnitude signal, not a production figure.
 **Server-side password hashing.** Vaultwarden's `password_iterations` default is
 `600_000` ([config.rs](https://github.com/dani-garcia/vaultwarden/blob/main/src/config.rs)).
 
-| PBKDF2-SHA256 iterations | measured | vs 10 ms budget |
-|---|---|---|
-| 5,000 | 0.94 ms | fits |
-| 10,000 | 1.49 ms | fits |
-| 100,000 | 12.76 ms | over |
-| 600,000 (Vaultwarden default) | **74.31 ms** | **7.4× over** |
+| PBKDF2-SHA256 iterations | laptop | workerd | vs 10 ms budget |
+|---|---|---|---|
+| 5,000 | 0.94 ms | — | fits |
+| 10,000 | 1.49 ms | **3 ms** | fits, with 2.5× headroom not 6.7× |
+| 100,000 | 12.76 ms | — | over |
+| 600,000 (Vaultwarden default) | **74.31 ms** | — | **7.4× over** |
+
+The workerd column was measured on the deployed Worker on 2026-09-10 and is the
+one to trust; see [PHASE0.md](PHASE0.md). The laptop under-reports by about 2×.
 
 **`GET /api/sync`** — Bitwarden clients pull the entire vault in one response.
 
