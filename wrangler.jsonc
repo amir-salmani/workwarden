@@ -16,13 +16,9 @@
     {
       "binding": "HYPERDRIVE",
       "id": "eace91137a9649659e5fcd5011063257",
-      // Caching off, deliberately. Hyperdrive caches reads by default, and
-      // registration's "does this user exist?" SELECT returns empty -- that
-      // empty result was being served back to the identical SELECT in login,
-      // so a new user could not log in until the TTL expired. A vault cannot
-      // serve stale reads: it also means a revoked session or a rotated
-      // security stamp would keep working.
-      "caching": { "disabled": true },
+      // Query caching is off, but it is NOT set here -- wrangler rejects a
+      // "caching" key in this file. It lives on the Hyperdrive config:
+      //   wrangler hyperdrive update <id> --caching-disabled
       "localConnectionString": "postgresql://postgres:dev@127.0.0.1:5432/workwarden"
     }
   ],

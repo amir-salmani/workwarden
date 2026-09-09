@@ -56,3 +56,22 @@ vault, the suite is a debugging harness, not a proof, and
 
 Wiring this into `preview.yml` needs a deployed preview, which needs a Neon
 database. Until then it runs by hand against local `wrangler dev`.
+
+## Found end-to-end, not by any test
+
+Driving the deployed preview turned up a bug no unit test could reach, because
+it lives in Cloudflare's configuration rather than in this repo.
+
+**Hyperdrive caches read queries by default.** Registration asks "does this user
+exist?", gets an empty result, and Hyperdrive caches it. Login runs the identical
+`select * from users where email = …` and is served the cached empty row — so a
+freshly registered user gets `invalid_grant` until the TTL expires. Waiting it
+out and retrying then succeeded, which is what identified it.
+
+Fixed with `wrangler hyperdrive update <id> --caching-disabled`. Note the
+setting is **not** in `wrangler.jsonc` — wrangler rejects a `caching` key there,
+silently as a warning. `deploy.yml` asserts it before every deploy.
+
+A vault cannot serve stale reads for a second reason: the same cache would keep
+a revoked session or a rotated security stamp working after it should have
+stopped.
