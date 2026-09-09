@@ -17,6 +17,19 @@ Neither implements organizations, collections, or sharing, and neither has a
 published threat model or a client-compatibility test suite. That gap is the
 project.
 
+## Develop
+
+```
+npm ci
+cp .dev.vars.example .dev.vars     # fill in; never committed
+git config core.hooksPath .githooks
+npm run dev
+```
+
+`npm test` runs in `workerd` via vitest-pool-workers, not in Node. `npm run
+routes` rewrites the route table and `npm run routes:check` fails when it drifts
+from the app.
+
 ## Reproduce the measurements
 
 ```
