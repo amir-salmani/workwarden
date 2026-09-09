@@ -2,7 +2,9 @@
   "$schema": "node_modules/wrangler/config-schema.json",
   "name": "workwarden",
   "main": "src/index.ts",
-  "compatibility_date": "2026-09-10",
+  // Capped by the workerd bundled with miniflare; a later date fails the test
+  // run with ERR_FUTURE_COMPATIBILITY_DATE. Raise it when wrangler updates.
+  "compatibility_date": "2026-08-15",
   // postgres.js needs it (STACK.md §2.2); harmless until Phase 1.
   "compatibility_flags": ["nodejs_compat"],
   // cpuTime is only readable from invocation logs -- workerd freezes clocks

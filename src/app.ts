@@ -2,13 +2,6 @@ import { Hono } from 'hono'
 import { config } from './routes/config.ts'
 import { identity } from './routes/identity.ts'
 
-export type Env = {
-  AUTH_PEPPER: string
-  JWT_SECRET: string
-  SPIKE_EMAIL?: string
-  SPIKE_AUTH_HASH?: string
-}
-
 export type App = { Bindings: Env }
 
 // Importable from plain Node so scripts/route-surface.mjs can read app.routes
