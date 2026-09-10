@@ -44,18 +44,22 @@ jobs:
           AGE_RECIPIENT: ${{ vars.AGE_RECIPIENT }}
 
       # Belt and braces: refuse to publish anything that is not age ciphertext.
+      # The exporter writes one file per vault, so no files means no vaults --
+      # true on an empty server, and not a failure.
       - name: Files are encrypted
+        id: check
         run: |
           shopt -s nullglob
           files=("$RUNNER_TEMP"/backup/*.json.age)
-          [ ${#files[@]} -gt 0 ] || { echo "no backup files were produced"; exit 1; }
           for f in "${files[@]}"; do
             head -c 21 "$f" | grep -q '^age-encryption.org/v1$' \
               || { echo "$f is not age ciphertext"; exit 1; }
           done
+          echo "count=${#files[@]}" >> "$GITHUB_OUTPUT"
           echo "${#files[@]} encrypted file(s)"
 
       - name: Publish to the backups repository
+        if: steps.check.outputs.count != '0'
         run: |
           mkdir -p ~/.ssh && chmod 700 ~/.ssh
           printf '%s\n' "$BACKUP_DEPLOY_KEY" > ~/.ssh/id_ed25519
