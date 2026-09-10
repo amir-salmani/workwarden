@@ -87,9 +87,24 @@ PASS the backup restores a working vault
 It runs on every pull request, against that PR's own Neon branch, with a keypair
 generated and discarded inside the run.
 
-## Part 5 — Open: where the file goes
+## Part 5 — Where the file goes
 
-Everything above is built and proven. The destination is not chosen yet, and it
-is the one part that costs money or adds a provider. Until it is settled, the
-export runs but lands nowhere durable, and
-[FEASIBILITY.md §2.4](FEASIBILITY.md) is **not yet satisfied**.
+A private GitHub repository, `workwarden-backups`, written daily by
+`.github/workflows/backup.yml`. One age-encrypted file per vault; git history is
+the versioning.
+
+Chosen 2026-09-11 over Hetzner object storage, which would have been a genuinely
+independent fourth provider but bills per bucket. GitHub is free and is neither
+Cloudflare nor Neon, which is what §2.4 asks for.
+
+**The cost of that choice, stated:** GitHub already holds the deploy token and
+runs the deploys, so a GitHub account suspension takes the code and the backups
+together — exactly the correlation [STORAGE.md §2.1](STORAGE.md) argues against
+for D1. It is a weaker answer than a fourth provider. What keeps it acceptable is
+that the backups are ciphertext under an identity GitHub has never seen, and that
+`git clone` puts a full copy on any machine that asks. **Clone it somewhere
+offline.** Until you have, this is one provider away from being the only copy.
+
+The job holds the age *recipient* and a deploy key scoped write-only to the
+backups repository. It can write a backup; it cannot read one back, and it cannot
+touch anything else.

@@ -1,0 +1,81 @@
+# The off-platform copy required by FEASIBILITY.md §2.4. Runs daily and on
+# demand; writes an age-encrypted Bitwarden-format export of every vault into a
+# private repository, which is neither Cloudflare nor Neon.
+#
+# This job holds the age *recipient*, never the identity, so it can write a
+# backup and cannot read one back. Its deploy key is write-scoped to the backups
+# repository and nothing else.
+#
+# Restoring needs two things: a file from that repo and the AUTH_PEPPER it was
+# taken under. See docs/BACKUP.md.
+name: backup
+
+on:
+  schedule:
+    - cron: '17 3 * * *'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: backup
+  cancel-in-progress: false
+
+jobs:
+  backup:
+    runs-on: ubuntu-latest
+    environment: production
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: 24
+          cache: npm
+      - run: npm ci
+
+      - name: Install age
+        run: sudo apt-get install -y --no-install-recommends age
+
+      - name: Export and encrypt
+        run: node scripts/export-vault.mjs "$RUNNER_TEMP/backup"
+        env:
+          DATABASE_URL: ${{ secrets.NEON_DATABASE_URL }}
+          AGE_RECIPIENT: ${{ vars.AGE_RECIPIENT }}
+
+      # Belt and braces: refuse to publish anything that is not age ciphertext.
+      - name: Files are encrypted
+        run: |
+          shopt -s nullglob
+          files=("$RUNNER_TEMP"/backup/*.json.age)
+          [ ${#files[@]} -gt 0 ] || { echo "no backup files were produced"; exit 1; }
+          for f in "${files[@]}"; do
+            head -c 21 "$f" | grep -q '^age-encryption.org/v1$' \
+              || { echo "$f is not age ciphertext"; exit 1; }
+          done
+          echo "${#files[@]} encrypted file(s)"
+
+      - name: Publish to the backups repository
+        run: |
+          mkdir -p ~/.ssh && chmod 700 ~/.ssh
+          printf '%s\n' "$BACKUP_DEPLOY_KEY" > ~/.ssh/id_ed25519
+          chmod 600 ~/.ssh/id_ed25519
+          ssh-keyscan github.com >> ~/.ssh/known_hosts 2>/dev/null
+
+          git clone --depth 1 git@github.com:amir-salmani/workwarden-backups.git "$RUNNER_TEMP/repo"
+          mkdir -p "$RUNNER_TEMP/repo/vaults"
+          cp "$RUNNER_TEMP"/backup/*.json.age "$RUNNER_TEMP/repo/vaults/"
+
+          cd "$RUNNER_TEMP/repo"
+          git config user.name  "Amir-Salmani"
+          git config user.email "hi@amirsalmani.com"
+          git add vaults
+          if git diff --cached --quiet; then
+            echo "vaults unchanged since the last backup"
+          else
+            git commit -m "Backup $(date -u +%Y-%m-%d)"
+            git push
+            echo "pushed"
+          fi
+        env:
+          BACKUP_DEPLOY_KEY: ${{ secrets.BACKUP_DEPLOY_KEY }}
