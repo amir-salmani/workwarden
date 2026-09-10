@@ -19,6 +19,9 @@ Read in order. Each one answers a question the next one assumes.
   Hyperdrive. Decided on the exit path, not on capacity.
 - [STACK.md](STACK.md) — *What is it built out of?* TypeScript, Hono, raw SQL.
   Draft until a Phase 0 spike ratifies it.
+- [BACKUP.md](BACKUP.md) — *What happens when Cloudflare or Neon vanishes?* An
+  age-encrypted Bitwarden-format export, restorable, and tested by destroying a
+  vault on every pull request.
 - [PHASE0.md](PHASE0.md) — *How do we get real CPU numbers?* Not from inside the
   Worker: workerd freezes the clock during execution.
 

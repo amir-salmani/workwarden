@@ -99,6 +99,20 @@ jobs:
         env:
           DATABASE_URL: ${{ steps.neon.outputs.uri }}
 
+      # The restore path, proven on every PR rather than assumed. The keypair is
+      # generated here and thrown away: CI must never hold the identity that
+      # decrypts production backups, only the recipient that writes them.
+      - name: Backup restores a working vault
+        run: |
+          sudo apt-get install -y --no-install-recommends age >/dev/null
+          age-keygen -o "$RUNNER_TEMP/ci.key" 2>/dev/null
+          AGE_IDENTITY="$RUNNER_TEMP/ci.key" \
+          AGE_RECIPIENT="$(grep -oP '^# public key: \K.*' "$RUNNER_TEMP/ci.key")" \
+          BASE="${{ steps.url.outputs.url }}" \
+            compat/verify-backup.sh
+        env:
+          DATABASE_URL: ${{ steps.neon.outputs.uri }}
+
       - name: Comment the preview URL
         uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9.0.0
         with:
