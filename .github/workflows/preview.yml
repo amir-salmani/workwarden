@@ -90,6 +90,15 @@ jobs:
         env:
           DATABASE_URL: ${{ steps.neon.outputs.uri }}
 
+      # The claim in compat/README.md, defended rather than asserted: an
+      # unmodified @bitwarden/cli logs in, writes an item, syncs, and decrypts
+      # what it reads back. Six protocol gaps were found this way, every one of
+      # them a 200 from the server followed by a crash inside the client.
+      - name: Bitwarden client compatibility
+        run: BASE="${{ steps.url.outputs.url }}" compat/run.sh
+        env:
+          DATABASE_URL: ${{ steps.neon.outputs.uri }}
+
       - name: Comment the preview URL
         uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9.0.0
         with:
