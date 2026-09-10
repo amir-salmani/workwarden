@@ -86,7 +86,7 @@ CREATE VIEW public.cipher_details AS
     user_id,
     folder_id,
     deleted_at,
-    (data || jsonb_build_object('id', id, 'organizationId', NULL::unknown, 'folderId', folder_id, 'type', type, 'favorite', favorite, 'reprompt', reprompt, 'edit', true, 'viewPassword', true, 'collectionIds', jsonb_build_array(), 'creationDate', public.bw_timestamp(created_at), 'revisionDate', public.bw_timestamp(revision_date), 'deletedDate',
+    (data || jsonb_build_object('id', id, 'organizationId', NULL::unknown, 'folderId', folder_id, 'type', type, 'favorite', favorite, 'reprompt', reprompt, 'edit', true, 'viewPassword', true, 'collectionIds', jsonb_build_array(), 'attachments', NULL::unknown, 'organizationUseTotp', false, 'key', NULL::unknown, 'creationDate', public.bw_timestamp(created_at), 'revisionDate', public.bw_timestamp(revision_date), 'deletedDate',
         CASE
             WHEN (deleted_at IS NULL) THEN NULL::jsonb
             ELSE to_jsonb(public.bw_timestamp(deleted_at))

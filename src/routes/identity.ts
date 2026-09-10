@@ -129,7 +129,28 @@ async function tokenResponse(
     masterPasswordPolicy: { object: 'masterPasswordPolicy' },
     UserDecryptionOptions: decryptionOptions(user),
     userDecryptionOptions: decryptionOptions(user),
+    AccountKeys: accountKeys(user),
+    accountKeys: accountKeys(user),
     unofficialServer: true,
+  }
+}
+
+/**
+ * The client builds its account cryptographic state from this. The password
+ * login strategy reads it with no null check, so omitting it throws
+ * `Cannot read properties of null` after a perfectly good 200 -- which is how
+ * this was found.
+ *
+ * Omitting signatureKeyPair and securityState declares a V1 account, and the
+ * client rejects the response if exactly one of the two is present.
+ */
+function accountKeys(user: User) {
+  if (!user.private_key || !user.public_key) return undefined
+  return {
+    publicKeyEncryptionKeyPair: {
+      publicKey: user.public_key,
+      wrappedPrivateKey: user.private_key,
+    },
   }
 }
 

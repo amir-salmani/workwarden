@@ -10,7 +10,28 @@ export const ciphers = new Hono<App>()
 ciphers.use('*', requireUser())
 
 // Everything except these is the client's encrypted blob and is stored whole.
-const SERVER_FIELDS = ['id', 'type', 'folderId', 'favorite', 'reprompt'] as const
+// Two groups: fields cipher_details computes, and fields the client sends on a
+// request that are meaningless in a response. Storing either means echoing the
+// client's own value back and overriding the view -- `attachments: {}` did
+// exactly that and crashed `bw`.
+const SERVER_FIELDS = [
+  'id',
+  'type',
+  'folderId',
+  'favorite',
+  'reprompt',
+  'organizationId',
+  'collectionIds',
+  'edit',
+  'viewPassword',
+  'attachments',
+  'attachments2',
+  'creationDate',
+  'revisionDate',
+  'deletedDate',
+  'lastKnownRevisionDate',
+  'object',
+] as const
 
 const cipherInput = z.object({
   type: z.number(),

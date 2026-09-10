@@ -18,44 +18,46 @@ client-side key derivation so an account can be created that a stock
 
 Run against `wrangler dev --local-protocol https` — `bw` refuses plain HTTP.
 
-## What it has already caught
+## Status: a stock client works
 
-Three gaps in one session, none of which the unit tests could have found,
-because unit tests assert the shape *we* decided on.
+`compat/run.sh` registers an account with real Bitwarden client crypto, then
+drives `@bitwarden/cli` through login, create, sync, and read-back:
 
-| Finding | Status |
+```
+ok   registered compat-…@workwarden.invalid
+ok   bw login
+ok   bw create item
+ok   bw sync
+ok   decrypted the item the client wrote
+PASS a stock Bitwarden client can use this server
+```
+
+The last line is the claim. It is worth exactly what the script asserts and no
+more: one user, one login item, no organizations, no attachments, no 2FA.
+
+## What it caught
+
+Six protocol gaps, none of which a unit test could have found — unit tests
+assert the shape *we* chose. Each was a `200` from the server followed by a
+crash inside the client.
+
+| Finding | How it surfaced |
 |---|---|
-| `bw` calls `POST /identity/accounts/prelogin/password`, not `/api/accounts/prelogin` | fixed |
-| Newer clients need `UserDecryptionOptions.MasterPasswordUnlock` to build their account crypto state | fixed |
-| That block's key field is `MasterKeyEncryptedUserKey` | fixed |
+| `bw` calls `POST /identity/accounts/prelogin/password`, not `/api/accounts/prelogin` | 404 |
+| Newer clients need `UserDecryptionOptions.MasterPasswordUnlock` | `toWrappedAccountCryptographicState` of null |
+| That block's key field is `MasterKeyEncryptedUserKey` | "does not contain a valid master key encrypted user key" |
+| The token response needs `AccountKeys` — the password login strategy reads it with **no null check**, unlike the SSO one | `Cannot read properties of null` |
+| `attachments` must be `null` or an array; the client sends `{}` on create and we echoed it back | `attachments.map is not a function` |
+| `organizationUseTotp` deserialises into a non-optional `bool` in the client's Rust SDK | `invalid type: unit value, expected a boolean` |
 
-## Where it stops, as of 2026-09-10
+The last two are the same underlying mistake: storing the client's request blob
+verbatim and returning it, so the client's own request fields overrode what the
+server should own. `SERVER_FIELDS` in `src/routes/ciphers.ts` now strips them and
+`cipher_details` sets them.
 
-`bw login` gets `200` from `/identity/connect/token` and then fails in the
-client:
-
-```
-TypeError: Cannot read properties of null (reading 'toWrappedAccountCryptographicState')
-```
-
-Server-side the flow is complete — `/api/config`,
-`/identity/accounts/prelogin/password` and `/identity/connect/token` all answer
-`200`. The failure is the CLI assembling its own crypto state from the response,
-so at least one more field is missing or misnamed.
-
-The 2026 clients model an account's keys as more than the user key: a public-key
-encryption keypair, a signature keypair, and a security state. The likely next
-step is an `AccountKeys` block alongside `MasterPasswordUnlock`. `[unverified]`
-
-**This is not a claim that workwarden is client-compatible.** It is a claim that
-the login handshake reaches the client's crypto layer. Until `bw sync` returns a
-vault, the suite is a debugging harness, not a proof, and
-[the README](../README.md) should not say otherwise.
-
-## Not yet automated
-
-Wiring this into `preview.yml` needs a deployed preview, which needs a Neon
-database. Until then it runs by hand against local `wrangler dev`.
+**Omitting `signatureKeyPair` and `securityState` from `AccountKeys` declares a
+V1 account.** The client rejects the response if exactly one of the two is
+present, so they move together or not at all. V2 accounts are not implemented.
 
 ## Found end-to-end, not by any test
 
