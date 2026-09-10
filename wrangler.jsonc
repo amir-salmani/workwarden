@@ -7,6 +7,10 @@
   "compatibility_date": "2026-08-15",
   // postgres.js needs it (STACK.md §2.2); harmless until Phase 1.
   "compatibility_flags": ["nodejs_compat"],
+
+  // custom_domain makes wrangler create the DNS record and the certificate.
+  // The zone is already on Cloudflare, so there is nothing to point at it.
+  "routes": [{ "pattern": "vault.amirsalmani.com", "custom_domain": true }],
   // cpuTime is only readable from invocation logs -- workerd freezes clocks
   // inside the isolate, so Phase 0 cannot time itself. See docs/PHASE0.md.
   // Neon project flat-heart-18148850, branch production, eu-central-1.
