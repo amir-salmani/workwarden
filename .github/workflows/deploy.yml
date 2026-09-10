@@ -49,5 +49,5 @@ jobs:
       - name: Smoke test
         run: node scripts/smoke.mjs "$WORKER_URL"
         env:
-          WORKER_URL: https://workwarden.cfworkerofabrinocloud.workers.dev
+          WORKER_URL: https://vault.amirsalmani.com
           DATABASE_URL: ${{ secrets.NEON_DATABASE_URL }}
