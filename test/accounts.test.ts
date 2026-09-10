@@ -65,3 +65,18 @@ it('serves the profile to a bearer token and refuses without one', async () => {
 
   expect((await SELF.fetch(`${ORIGIN}/api/accounts/profile`)).status).toBe(401)
 })
+
+it('answers a bodyless token request with 400, not 500', async () => {
+  const res = await SELF.fetch(`${ORIGIN}/identity/connect/token`, { method: 'POST' })
+  expect(res.status).toBe(400)
+  expect(await res.json()).toMatchObject({ error: 'invalid_request' })
+})
+
+it('serves a page at the root that is not a login form', async () => {
+  const res = await SELF.fetch(`${ORIGIN}/`)
+  expect(res.status).toBe(200)
+  const html = await res.text()
+  expect(html).toContain('workwarden')
+  expect(html).not.toContain('<input')
+  expect(html).not.toContain('<script')
+})

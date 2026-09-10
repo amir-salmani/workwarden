@@ -4,6 +4,7 @@ import { accounts } from './routes/accounts.ts'
 import { ciphers } from './routes/ciphers.ts'
 import { config } from './routes/config.ts'
 import { folders } from './routes/folders.ts'
+import { home } from './routes/home.ts'
 import { identity } from './routes/identity.ts'
 import { sync } from './routes/sync.ts'
 import type { User } from './users.ts'
@@ -17,6 +18,7 @@ export type App = {
 // off the real app rather than regex the source.
 export function createApp() {
   const app = new Hono<App>()
+  app.route('/', home)
   app.use('/api/*', withDb())
   app.route('/api', config)
   app.route('/api/accounts', accounts)

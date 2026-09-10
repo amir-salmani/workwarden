@@ -9,17 +9,20 @@ status: active
 
 # Route surface
 
-22 routes.
+25 routes.
 
 | Method | Path |
 |---|---|
 | DELETE | `/api/ciphers/:id` |
 | DELETE | `/api/folders/:id` |
+| GET | `/` |
 | GET | `/api/accounts/profile` |
 | GET | `/api/accounts/revision-date` |
 | GET | `/api/ciphers/:id` |
 | GET | `/api/config` |
 | GET | `/api/sync` |
+| GET | `/favicon.ico` |
+| GET | `/robots.txt` |
 | POST | `/api/accounts/prelogin` |
 | POST | `/api/accounts/register` |
 | POST | `/api/ciphers` |

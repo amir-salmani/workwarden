@@ -32,7 +32,14 @@ identity.post('/accounts/prelogin', prelogin)
 identity.post('/accounts/prelogin/password', prelogin)
 
 identity.post('/connect/token', async (c) => {
-  const form = Object.fromEntries(await c.req.formData())
+  // formData() throws on a request with no body, and an unauthenticated 500 on
+  // the login endpoint is worse than a 400.
+  let form: Record<string, unknown>
+  try {
+    form = Object.fromEntries(await c.req.formData())
+  } catch {
+    return oauthError(c, 'invalid_request', 'Malformed request body')
+  }
   const sql = c.get('sql')
 
   const refresh = refreshGrant.safeParse(form)
