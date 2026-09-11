@@ -157,3 +157,102 @@ it('does not distinguish a disabled send from one that never existed', async () 
   expect(disabled.status).toBe(missing.status)
   expect(await disabled.text()).toBe(await missing.text())
 })
+
+const aFileSend = {
+  ...aSend,
+  type: 1,
+  text: null,
+  file: { fileName: '2.secret.txt' },
+}
+
+const upload = (url: string, bytes: Uint8Array) => {
+  const form = new FormData()
+  form.append('data', new File([bytes], 'ignored'))
+  return SELF.fetch(url, { method: 'POST', body: form, headers: auth })
+}
+
+async function reserve(bytes: Uint8Array) {
+  const res = await api('/api/sends/file/v2', {
+    method: 'POST',
+    body: JSON.stringify({ ...aFileSend, fileLength: bytes.length }),
+  })
+  expect(res.status).toBe(200)
+  return (await res.json()) as {
+    url: string
+    fileUploadType: number
+    sendResponse: { id: string; file: { id: string; size: number } }
+  }
+}
+
+it('reserves a file send, takes the bytes, and hands them back over a link', async () => {
+  const bytes = crypto.getRandomValues(new Uint8Array(64))
+  const { url, fileUploadType, sendResponse } = await reserve(bytes)
+  expect(fileUploadType).toBe(0)
+  expect((await upload(url, bytes)).status).toBe(200)
+
+  const mine = (await (await api(`/api/sends/${sendResponse.id}`)).json()) as {
+    file: { size: number; sizeName: string }
+  }
+  expect(mine.file.size).toBe(64)
+  expect(mine.file.sizeName).toBe('64 Bytes')
+
+  // A recipient has a link and nothing else: no session on any of these calls.
+  const accessId = accessIdOf(sendResponse.id)
+  const meta = (await (
+    await SELF.fetch(`${ORIGIN}/api/sends/access/${accessId}`, { method: 'POST' })
+  ).json()) as { file: { id: string } }
+
+  const link = await SELF.fetch(`${ORIGIN}/api/sends/access/${accessId}/file/${meta.file.id}`, {
+    method: 'POST',
+  })
+  const { url: downloadUrl } = (await link.json()) as { url: string }
+
+  const got = await SELF.fetch(downloadUrl)
+  expect(got.status).toBe(200)
+  expect(new Uint8Array(await got.arrayBuffer())).toEqual(bytes)
+})
+
+it('will not serve a send file without the download token', async () => {
+  const bytes = crypto.getRandomValues(new Uint8Array(16))
+  const { url, sendResponse } = await reserve(bytes)
+  await upload(url, bytes)
+
+  const fileId = sendResponse.file.id
+  const naked = `${ORIGIN}/api/sends/access/file/${sendResponse.id}/${fileId}`
+  expect((await SELF.fetch(naked)).status).toBe(404)
+  expect((await SELF.fetch(`${naked}?t=not-a-token`)).status).toBe(404)
+})
+
+it('counts a file send once, not twice', async () => {
+  const bytes = crypto.getRandomValues(new Uint8Array(8))
+  const { url, sendResponse } = await reserve(bytes)
+  await upload(url, bytes)
+  const accessId = accessIdOf(sendResponse.id)
+
+  await SELF.fetch(`${ORIGIN}/api/sends/access/${accessId}`, { method: 'POST' })
+  await SELF.fetch(`${ORIGIN}/api/sends/access/${accessId}/file/${sendResponse.file.id}`, {
+    method: 'POST',
+  })
+
+  const mine = (await (await api(`/api/sends/${sendResponse.id}`)).json()) as {
+    accessCount: number
+  }
+  expect(mine.accessCount).toBe(1)
+})
+
+it('takes one upload per reservation, and no more', async () => {
+  const bytes = crypto.getRandomValues(new Uint8Array(32))
+  const { url } = await reserve(bytes)
+  expect((await upload(url, bytes)).status).toBe(200)
+  expect((await upload(url, bytes)).status).toBe(404)
+})
+
+it('drops the send when the file is bigger than it reserved', async () => {
+  const { url, sendResponse } = await reserve(new Uint8Array(8))
+  expect((await upload(url, crypto.getRandomValues(new Uint8Array(64)))).status).toBe(400)
+  expect((await api(`/api/sends/${sendResponse.id}`)).status).toBe(404)
+})
+
+it('turns away the one-request upload older clients used', async () => {
+  expect((await api('/api/sends/file', { method: 'POST', body: '{}' })).status).toBe(400)
+})

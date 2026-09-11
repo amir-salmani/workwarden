@@ -58,3 +58,37 @@ export async function verifyAccessToken(
 export function randomToken(): string {
   return btoa(String.fromCharCode(...crypto.getRandomValues(new Uint8Array(48))))
 }
+
+/** A download link for a Send's file, good for five minutes and one file. */
+const SEND_FILE_TTL = 300
+
+export function issueSendFileToken(
+  secret: string,
+  issuer: string,
+  sendId: string,
+  fileId: string,
+): Promise<string> {
+  const now = Math.floor(Date.now() / 1000)
+  return new SignJWT({})
+    .setProtectedHeader({ alg: ALG })
+    .setIssuer(issuer)
+    .setSubject(`${sendId}/${fileId}`)
+    .setNotBefore(now)
+    .setExpirationTime(now + SEND_FILE_TTL)
+    .sign(new TextEncoder().encode(secret))
+}
+
+export async function sendFileTokenOk(
+  secret: string,
+  issuer: string,
+  token: string,
+  sendId: string,
+  fileId: string,
+): Promise<boolean> {
+  try {
+    const { payload } = await jwtVerify(token, new TextEncoder().encode(secret), { issuer })
+    return payload.sub === `${sendId}/${fileId}`
+  } catch {
+    return false
+  }
+}
