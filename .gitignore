@@ -5,3 +5,6 @@ dist/
 *.log
 .env
 .neon
+
+# Vendored agent skills; skills-lock.json pins them, `npx neon skills` refetches.
+.claude/skills/
