@@ -6,6 +6,7 @@ import { ciphers } from './routes/ciphers.ts'
 import { config } from './routes/config.ts'
 import { folders } from './routes/folders.ts'
 import { home } from './routes/home.ts'
+import { icons } from './routes/icons.ts'
 import { identity } from './routes/identity.ts'
 import { sync } from './routes/sync.ts'
 import type { User } from './users.ts'
@@ -29,6 +30,8 @@ export function createApp() {
   // Outside /api: the URL handed to clients in a cipher's attachment list.
   app.use('/attachments/*', withDb())
   app.route('/attachments', attachments)
+  // No auth: a site icon is public, and the client fetches these before unlock.
+  app.route('/icons', icons)
   app.route('/identity', identity)
   return app
 }
