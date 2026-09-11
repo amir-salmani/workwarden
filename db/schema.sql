@@ -93,6 +93,7 @@ CREATE FUNCTION public.cipher_json(c public.ciphers, base_url text) RETURNS json
     'reprompt',       c.reprompt,
     'edit',           true,
     'viewPassword',   true,
+    'permissions',    jsonb_build_object('delete', true, 'restore', true),
     'collectionIds',  '[]'::jsonb,
     'attachments',    (
       select jsonb_agg(jsonb_build_object(
