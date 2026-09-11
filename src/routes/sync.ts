@@ -15,6 +15,7 @@ export const sync = new Hono<App>()
 sync.get('/', requireUser(), async (c) => {
   const user = c.get('user')
   const organizations = await organizationsFor(c.get('sql'), user.id)
+  const origin = new URL(c.req.url).origin
   const rows = await c.get('sql')<{ body: string }[]>`
     select json_build_object(
       'profile', ${c.get('sql').json(profile(user, organizations))}::jsonb,
@@ -22,9 +23,9 @@ sync.get('/', requireUser(), async (c) => {
         (select jsonb_agg(json order by json->>'id') from folder_details where user_id = ${user.id}),
         '[]'::jsonb),
       'ciphers', coalesce(
-        (select jsonb_agg(cd.json order by cd.json->>'id')
-           from cipher_details cd
-           join visible_ciphers vc on vc.cipher_id = cd.id
+        (select jsonb_agg(cipher_json(ch, ${origin}) order by ch.id)
+           from ciphers ch
+           join visible_ciphers vc on vc.cipher_id = ch.id
           where vc.user_id = ${user.id}),
         '[]'::jsonb),
       'collections', coalesce(

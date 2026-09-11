@@ -258,3 +258,51 @@ it('hides an organization’s ciphers from someone who is not a member', async (
   expect(body.ciphers).toHaveLength(0)
   expect(body.collections).toEqual([])
 })
+
+it('lists an attachment on its cipher and streams the blob', async () => {
+  const sql = connect(env)
+  const created = await api('/api/ciphers', {
+    method: 'POST',
+    body: JSON.stringify({ type: 1, name: '2.has-attachment', login: { username: '2.u' } }),
+  })
+  const { id } = (await created.json()) as { id: string }
+
+  await sql`
+    insert into attachments (id, cipher_id, file_name, file_size, akey)
+    values ('att1', ${id}, '2.secret.pdf', 2048, '2.attachment-key')`
+  await env.ATTACHMENTS.put(`${id}/att1`, 'encrypted-bytes')
+
+  const body = await getSync()
+  const cipher = body.ciphers.find((c) => c.id === id) as unknown as {
+    attachments: { id: string; url: string; fileName: string; sizeName: string }[]
+  }
+  expect(cipher.attachments).toHaveLength(1)
+  expect(cipher.attachments[0]).toMatchObject({
+    id: 'att1',
+    fileName: '2.secret.pdf',
+    sizeName: '2.00 KB',
+  })
+  expect(cipher.attachments[0]?.url).toBe(`${ORIGIN}/attachments/${id}/att1`)
+
+  const blob = await SELF.fetch(`${ORIGIN}/attachments/${id}/att1`, { headers: auth })
+  expect(blob.status).toBe(200)
+  expect(await blob.text()).toBe('encrypted-bytes')
+})
+
+it('will not serve an attachment on a cipher the user cannot see', async () => {
+  const sql = connect(env)
+  const [org] = await sql<{ id: string }[]>`
+    insert into organizations (name) values ('2.other-org') returning id`
+  if (!org) throw new Error('expected a row')
+  const [cipher] = await sql<{ id: string }[]>`
+    insert into ciphers (user_id, organization_id, type, data)
+    values (null, ${org.id}, 1, ${sql.json({ name: '2.theirs' })}) returning id`
+  if (!cipher) throw new Error('expected a row')
+  await sql`
+    insert into attachments (id, cipher_id, file_name, file_size)
+    values ('att2', ${cipher.id}, '2.theirs.pdf', 10)`
+  await env.ATTACHMENTS.put(`${cipher.id}/att2`, 'not-yours')
+
+  const res = await SELF.fetch(`${ORIGIN}/attachments/${cipher.id}/att2`, { headers: auth })
+  expect(res.status).toBe(404)
+})

@@ -80,12 +80,71 @@ CREATE TABLE public.ciphers (
 
 
 --
--- Name: collection_ciphers; Type: TABLE; Schema: public; Owner: -
+-- Name: cipher_json(public.ciphers, text); Type: FUNCTION; Schema: public; Owner: -
 --
 
-CREATE TABLE public.collection_ciphers (
-    collection_id uuid NOT NULL,
-    cipher_id uuid NOT NULL
+CREATE FUNCTION public.cipher_json(c public.ciphers, base_url text) RETURNS jsonb
+    LANGUAGE sql STABLE
+    AS $$
+  select c.data || jsonb_build_object(
+    'id',             c.id,
+    'organizationId', c.organization_id,
+    'folderId',       c.folder_id,
+    'type',           c.type,
+    'favorite',       c.favorite,
+    'reprompt',       c.reprompt,
+    'edit',           true,
+    'viewPassword',   true,
+    'collectionIds',  coalesce(
+      (select jsonb_agg(cc.collection_id) from collection_ciphers cc where cc.cipher_id = c.id),
+      '[]'::jsonb),
+    'attachments',    (
+      select jsonb_agg(jsonb_build_object(
+        'id',       a.id,
+        'url',      base_url || '/attachments/' || c.id || '/' || a.id,
+        'fileName', a.file_name,
+        'key',      a.akey,
+        'size',     a.file_size::text,
+        'sizeName', human_size(a.file_size),
+        'object',   'attachment'
+      ) order by a.id)
+      from attachments a where a.cipher_id = c.id
+    ),
+    'organizationUseTotp', true,
+    'key',            coalesce(c.data -> 'key', 'null'::jsonb),
+    'creationDate',   bw_timestamp(c.created_at),
+    'revisionDate',   bw_timestamp(c.revision_date),
+    'deletedDate',    case when c.deleted_at is null then null
+                           else to_jsonb(bw_timestamp(c.deleted_at)) end,
+    'object',         'cipherDetails'
+  )
+$$;
+
+
+--
+-- Name: human_size(bigint); Type: FUNCTION; Schema: public; Owner: -
+--
+
+CREATE FUNCTION public.human_size(bytes bigint) RETURNS text
+    LANGUAGE sql IMMUTABLE
+    AS $$ select case
+     when bytes >= 1073741824 then round(bytes / 1073741824.0, 2)::text || ' GB'
+     when bytes >= 1048576    then round(bytes / 1048576.0, 2)::text || ' MB'
+     when bytes >= 1024       then round(bytes / 1024.0, 2)::text || ' KB'
+     else bytes::text || ' Bytes' end $$;
+
+
+--
+-- Name: attachments; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.attachments (
+    id text NOT NULL,
+    cipher_id uuid NOT NULL,
+    file_name text NOT NULL,
+    file_size bigint NOT NULL,
+    akey text,
+    created_at timestamp with time zone DEFAULT now() NOT NULL
 );
 
 
@@ -99,14 +158,18 @@ CREATE VIEW public.cipher_details AS
     organization_id,
     folder_id,
     deleted_at,
-    (data || jsonb_build_object('id', id, 'organizationId', organization_id, 'folderId', folder_id, 'type', type, 'favorite', favorite, 'reprompt', reprompt, 'edit', true, 'viewPassword', true, 'collectionIds', COALESCE(( SELECT jsonb_agg(cc.collection_id) AS jsonb_agg
-           FROM public.collection_ciphers cc
-          WHERE (cc.cipher_id = c.id)), '[]'::jsonb), 'attachments', NULL::unknown, 'organizationUseTotp', true, 'key', COALESCE((data -> 'key'::text), 'null'::jsonb), 'creationDate', public.bw_timestamp(created_at), 'revisionDate', public.bw_timestamp(revision_date), 'deletedDate',
-        CASE
-            WHEN (deleted_at IS NULL) THEN NULL::jsonb
-            ELSE to_jsonb(public.bw_timestamp(deleted_at))
-        END, 'object', 'cipherDetails')) AS "json"
+    public.cipher_json(c.*, ''::text) AS "json"
    FROM public.ciphers c;
+
+
+--
+-- Name: collection_ciphers; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.collection_ciphers (
+    collection_id uuid NOT NULL,
+    cipher_id uuid NOT NULL
+);
 
 
 --
@@ -275,9 +338,20 @@ CREATE TABLE public.users (
 CREATE VIEW public.vault_export AS
  SELECT id AS user_id,
     email,
-    jsonb_build_object('encrypted', true, 'workwarden', jsonb_build_object('formatVersion', 1, 'exportedAt', public.bw_timestamp(now()), 'account', jsonb_build_object('id', id, 'email', email, 'name', name, 'passwordHash', password_hash, 'salt', salt, 'passwordHint', password_hint, 'kdfType', kdf_type, 'kdfIterations', kdf_iterations, 'kdfMemory', kdf_memory, 'kdfParallelism', kdf_parallelism, 'key', akey, 'privateKey', private_key, 'publicKey', public_key)), 'folders', COALESCE(( SELECT jsonb_agg(jsonb_build_object('id', f.id, 'name', f.name)) AS jsonb_agg
+    jsonb_build_object('encrypted', true, 'workwarden', jsonb_build_object('formatVersion', 1, 'exportedAt', public.bw_timestamp(now()), 'account', jsonb_build_object('id', id, 'email', email, 'name', name, 'passwordHash', password_hash, 'salt', salt, 'passwordHint', password_hint, 'kdfType', kdf_type, 'kdfIterations', kdf_iterations, 'kdfMemory', kdf_memory, 'kdfParallelism', kdf_parallelism, 'key', akey, 'privateKey', private_key, 'publicKey', public_key), 'organizations', COALESCE(( SELECT jsonb_agg(jsonb_build_object('id', o.id, 'name', o.name, 'key', ou.akey, 'status', ou.status, 'type', ou.type, 'accessAll', ou.access_all, 'privateKey', o.private_key, 'publicKey', o.public_key, 'collections', COALESCE(( SELECT jsonb_agg(jsonb_build_object('id', cl.id, 'name', cl.name)) AS jsonb_agg
+                   FROM public.collections cl
+                  WHERE (cl.organization_id = o.id)), '[]'::jsonb))) AS jsonb_agg
+           FROM (public.organization_users ou
+             JOIN public.organizations o ON ((o.id = ou.organization_id)))
+          WHERE (ou.user_id = u.id)), '[]'::jsonb), 'sharedItems', COALESCE(( SELECT jsonb_agg((public.cipher_json(c.*, ''::text) || jsonb_build_object('collectionIds', ( SELECT jsonb_agg(cc.collection_id) AS jsonb_agg
+                   FROM public.collection_ciphers cc
+                  WHERE (cc.cipher_id = c.id))))) AS jsonb_agg
+           FROM public.ciphers c
+          WHERE (c.organization_id IN ( SELECT organization_users.organization_id
+                   FROM public.organization_users
+                  WHERE (organization_users.user_id = u.id)))), '[]'::jsonb)), 'folders', COALESCE(( SELECT jsonb_agg(jsonb_build_object('id', f.id, 'name', f.name)) AS jsonb_agg
            FROM public.folders f
-          WHERE (f.user_id = u.id)), '[]'::jsonb), 'items', COALESCE(( SELECT jsonb_agg((((((((c."json" - 'edit'::text) - 'viewPassword'::text) - 'object'::text) - 'attachments'::text) - 'organizationUseTotp'::text) - 'collectionIds'::text) || jsonb_build_object('collectionIds', NULL::unknown))) AS jsonb_agg
+          WHERE (f.user_id = u.id)), '[]'::jsonb), 'items', COALESCE(( SELECT jsonb_agg(((((((c."json" - 'edit'::text) - 'viewPassword'::text) - 'object'::text) - 'organizationUseTotp'::text) - 'collectionIds'::text) || jsonb_build_object('collectionIds', NULL::unknown))) AS jsonb_agg
            FROM public.cipher_details c
           WHERE (c.user_id = u.id)), '[]'::jsonb)) AS export
    FROM public.users u;
@@ -321,6 +395,14 @@ UNION
  SELECT cu.collection_id,
     cu.user_id
    FROM public.collection_users cu;
+
+
+--
+-- Name: attachments attachments_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.attachments
+    ADD CONSTRAINT attachments_pkey PRIMARY KEY (id);
 
 
 --
@@ -436,6 +518,13 @@ ALTER TABLE ONLY public.users
 
 
 --
+-- Name: attachments_cipher_id_idx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX attachments_cipher_id_idx ON public.attachments USING btree (cipher_id);
+
+
+--
 -- Name: ciphers_organization_id_idx; Type: INDEX; Schema: public; Owner: -
 --
 
@@ -482,6 +571,14 @@ CREATE INDEX folders_user_id_idx ON public.folders USING btree (user_id);
 --
 
 CREATE INDEX organization_users_user_id_idx ON public.organization_users USING btree (user_id);
+
+
+--
+-- Name: attachments attachments_cipher_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.attachments
+    ADD CONSTRAINT attachments_cipher_id_fkey FOREIGN KEY (cipher_id) REFERENCES public.ciphers(id) ON DELETE CASCADE;
 
 
 --

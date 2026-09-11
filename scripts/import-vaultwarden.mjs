@@ -221,6 +221,30 @@ for (const cc of rows('select * from ciphers_collections')) {
   filed++
 }
 
+// Attachment metadata. The blobs themselves live in R2 and are uploaded
+// separately from the Vaultwarden data directory -- see docs/MIGRATION.md.
+// Rows without their blob would show a client a file it cannot fetch, so the
+// importer reports what still needs uploading.
+const pendingBlobs = []
+for (const a of rows('select * from attachments')) {
+  const owned = await sql`
+    select 1 from ciphers where id = ${a.cipher_uuid} limit 1`
+  if (owned.length === 0) continue
+  await sql`
+    insert into attachments (id, cipher_id, file_name, file_size, akey)
+    values (${a.id}, ${a.cipher_uuid}, ${a.file_name}, ${Number(a.file_size)}, ${a.akey ?? null})
+    on conflict (id) do nothing`
+  pendingBlobs.push(`${a.cipher_uuid}/${a.id}`)
+}
+if (pendingBlobs.length > 0) {
+  console.log(`ok   ${pendingBlobs.length} attachment record(s); upload the blobs with:`)
+  for (const k of pendingBlobs) {
+    console.log(
+      `       wrangler r2 object put workwarden-attachments/${k} --file data/attachments/${k} --remote`,
+    )
+  }
+}
+
 const totalOrgCiphers = rows(
   'select count(*) as n from ciphers where organization_uuid is not null',
 )[0].n

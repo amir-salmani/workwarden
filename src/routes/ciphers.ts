@@ -54,7 +54,7 @@ ciphers.post('/', async (c) => {
     ) returning id`
   const id = rows[0]?.id
   if (!id) return apiError(c, 'Could not create cipher', 500)
-  return c.json(await detail(c.get('sql'), c.get('user').id, id))
+  return c.json(await detail(c.get('sql'), c.get('user').id, id, new URL(c.req.url).origin))
 })
 
 /**
@@ -107,7 +107,12 @@ ciphers.post('/import', async (c) => {
 })
 
 ciphers.get('/:id', async (c) => {
-  const found = await detail(c.get('sql'), c.get('user').id, c.req.param('id'))
+  const found = await detail(
+    c.get('sql'),
+    c.get('user').id,
+    c.req.param('id'),
+    new URL(c.req.url).origin,
+  )
   return found ? c.json(found) : apiError(c, 'Cipher not found', 404)
 })
 
@@ -129,7 +134,7 @@ ciphers.on(['PUT', 'POST'], '/:id', async (c) => {
     where id = ${id} and user_id = ${c.get('user').id}
     returning id`
   if (!rows[0]) return apiError(c, 'Cipher not found', 404)
-  return c.json(await detail(c.get('sql'), c.get('user').id, id))
+  return c.json(await detail(c.get('sql'), c.get('user').id, id, new URL(c.req.url).origin))
 })
 
 // Soft delete -- the client's trash. `DELETE` is the permanent one.
@@ -144,7 +149,9 @@ ciphers.on(['PUT', 'POST'], '/:id/restore', async (c) => {
   await c.get('sql')`
     update ciphers set deleted_at = null, revision_date = now()
     where id = ${c.req.param('id')} and user_id = ${c.get('user').id}`
-  return c.json(await detail(c.get('sql'), c.get('user').id, c.req.param('id')))
+  return c.json(
+    await detail(c.get('sql'), c.get('user').id, c.req.param('id'), new URL(c.req.url).origin),
+  )
 })
 
 ciphers.delete('/:id', async (c) => {
@@ -159,8 +166,11 @@ function blob(body: Record<string, unknown>): JSONValue {
   return out as JSONValue
 }
 
-async function detail(sql: Sql, userId: string, id: string) {
+async function detail(sql: Sql, userId: string, id: string, origin: string) {
   const rows = await sql<{ json: unknown }[]>`
-    select json from cipher_details where id = ${id} and user_id = ${userId}`
+    select cipher_json(ch, ${origin}) as json
+      from ciphers ch
+      join visible_ciphers vc on vc.cipher_id = ch.id
+     where ch.id = ${id} and vc.user_id = ${userId}`
   return rows[0]?.json
 }

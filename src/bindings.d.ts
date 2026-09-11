@@ -3,6 +3,7 @@
 // Cloudflare.Env that `cloudflare:test` uses, so there is one source of truth.
 type WorkwardenSecrets = {
   HYPERDRIVE: Hyperdrive
+  ATTACHMENTS: R2Bucket
 
   AUTH_PEPPER: string
   JWT_SECRET: string

@@ -32,6 +32,10 @@
       "localConnectionString": "postgresql://postgres:dev@127.0.0.1:5432/workwarden"
     }
   ],
+  // Attachment blobs. Already encrypted with the attachment's own key before
+  // they reach us, so R2 holds ciphertext.
+  "r2_buckets": [{ "binding": "ATTACHMENTS", "bucket_name": "workwarden-attachments" }],
+
   "observability": {
     "enabled": true,
     "logs": { "invocation_logs": true, "head_sampling_rate": 1 }

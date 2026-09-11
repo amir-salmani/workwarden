@@ -9,7 +9,7 @@ status: active
 
 # Route surface
 
-27 routes.
+28 routes.
 
 | Method | Path |
 |---|---|
@@ -21,6 +21,7 @@ status: active
 | GET | `/api/ciphers/:id` |
 | GET | `/api/config` |
 | GET | `/api/sync` |
+| GET | `/attachments/:cipherId/:attachmentId` |
 | GET | `/favicon.ico` |
 | GET | `/robots.txt` |
 | POST | `/api/accounts/claim` |

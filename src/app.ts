@@ -1,6 +1,7 @@
 import { Hono } from 'hono'
 import { type Sql, withDb } from './db.ts'
 import { accounts } from './routes/accounts.ts'
+import { attachments } from './routes/attachments.ts'
 import { ciphers } from './routes/ciphers.ts'
 import { config } from './routes/config.ts'
 import { folders } from './routes/folders.ts'
@@ -25,6 +26,9 @@ export function createApp() {
   app.route('/api/sync', sync)
   app.route('/api/ciphers', ciphers)
   app.route('/api/folders', folders)
+  // Outside /api: the URL handed to clients in a cipher's attachment list.
+  app.use('/attachments/*', withDb())
+  app.route('/attachments', attachments)
   app.route('/identity', identity)
   return app
 }
