@@ -1,3 +1,4 @@
+import type { Context } from 'hono'
 import { Hono } from 'hono'
 import type { JSONValue } from 'postgres'
 import { z } from 'zod'
@@ -154,11 +155,95 @@ ciphers.on(['PUT', 'POST'], '/:id/restore', async (c) => {
   )
 })
 
+/**
+ * Attachment upload, the two-step v2 flow: reserve a record, then send bytes.
+ *
+ * The client encrypts the file with its own attachment key before uploading, so
+ * what arrives is ciphertext and the server never learns the contents or even
+ * the real filename -- `fileName` is an EncString too.
+ */
+const attachmentInput = z.object({
+  fileName: z.string().min(1),
+  key: z.string().min(1),
+  fileSize: z.coerce.number().int().positive(),
+})
+
+ciphers.post('/:id/attachment/v2', async (c) => {
+  const cipherId = c.req.param('id')
+  const parsed = attachmentInput.safeParse(insensitive(await c.req.json()))
+  if (!parsed.success) return apiError(c, 'Attachment metadata is incomplete')
+
+  const owned = await ownedByUser(c.get('sql'), c.get('user').id, cipherId)
+  if (!owned) return apiError(c, 'Cipher not found', 404)
+
+  const attachmentId = crypto.randomUUID().replaceAll('-', '').slice(0, 20)
+  await c.get('sql')`
+    insert into attachments (id, cipher_id, file_name, file_size, akey)
+    values (${attachmentId}, ${cipherId}, ${parsed.data.fileName},
+            ${parsed.data.fileSize}, ${parsed.data.key})`
+
+  const origin = new URL(c.req.url).origin
+  return c.json({
+    attachmentId,
+    url: `${origin}/api/ciphers/${cipherId}/attachment/${attachmentId}`,
+    fileUploadType: 0, // direct to this server; there is no blob service in front
+    cipherResponse: await detail(c.get('sql'), c.get('user').id, cipherId, origin),
+  })
+})
+
+ciphers.post('/:id/attachment/:attachmentId', async (c) => {
+  const cipherId = c.req.param('id')
+  const attachmentId = c.req.param('attachmentId')
+  const rows = await c.get('sql')<{ file_size: string }[]>`
+    select a.file_size
+      from attachments a
+      join visible_ciphers vc on vc.cipher_id = a.cipher_id
+     where a.id = ${attachmentId} and a.cipher_id = ${cipherId}
+       and vc.user_id = ${c.get('user').id}`
+  if (rows.length === 0) return apiError(c, 'Attachment not found', 404)
+
+  const form = await c.req.formData().catch(() => null)
+  const file = form?.get('data')
+  if (!(file instanceof File)) return apiError(c, 'No file was uploaded')
+
+  await c.env.ATTACHMENTS.put(`${cipherId}/${attachmentId}`, file.stream())
+  // Trust the bytes that arrived over the size the client promised.
+  await c.get('sql')`
+    update attachments set file_size = ${file.size} where id = ${attachmentId}`
+  return c.body(null, 200)
+})
+
+ciphers.on(['DELETE', 'POST'], '/:id/attachment/:attachmentId/delete', (c) => removeAttachment(c))
+ciphers.delete('/:id/attachment/:attachmentId', (c) => removeAttachment(c))
+
 ciphers.delete('/:id', async (c) => {
   await c.get('sql')`
     delete from ciphers where id = ${c.req.param('id')} and user_id = ${c.get('user').id}`
   return c.body(null, 200)
 })
+
+async function ownedByUser(sql: Sql, userId: string, cipherId: string) {
+  const rows = await sql`
+    select 1 from visible_ciphers where cipher_id = ${cipherId} and user_id = ${userId}`
+  return rows.length > 0
+}
+
+async function removeAttachment(c: Context<App>) {
+  const cipherId = c.req.param('id') ?? ''
+  const attachmentId = c.req.param('attachmentId') ?? ''
+  const sql = c.get('sql')
+  const rows = await sql<{ id: string }[]>`
+    delete from attachments a
+     using visible_ciphers vc
+     where vc.cipher_id = a.cipher_id
+       and a.id = ${attachmentId} and a.cipher_id = ${cipherId}
+       and vc.user_id = ${c.get('user').id}
+    returning a.id`
+  if (rows.length === 0) return apiError(c, 'Attachment not found', 404)
+  // The row is the record of existence; a blob without one is unreachable.
+  await c.env.ATTACHMENTS.delete(`${cipherId}/${attachmentId}`)
+  return c.body(null, 200)
+}
 
 function blob(body: Record<string, unknown>): JSONValue {
   const out = { ...body }

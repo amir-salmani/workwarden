@@ -306,3 +306,65 @@ it('will not serve an attachment on a cipher the user cannot see', async () => {
   const res = await SELF.fetch(`${ORIGIN}/attachments/${cipher.id}/att2`, { headers: auth })
   expect(res.status).toBe(404)
 })
+
+it('reserves an attachment, accepts the bytes, then deletes it', async () => {
+  const created = await api('/api/ciphers', {
+    method: 'POST',
+    body: JSON.stringify({ type: 1, name: '2.with-upload', login: { username: '2.u' } }),
+  })
+  const { id } = (await created.json()) as { id: string }
+
+  const reserve = await api(`/api/ciphers/${id}/attachment/v2`, {
+    method: 'POST',
+    body: JSON.stringify({ fileName: '2.report.pdf', key: '2.att-key', fileSize: 11 }),
+  })
+  expect(reserve.status).toBe(200)
+  const { attachmentId, url, fileUploadType } = (await reserve.json()) as {
+    attachmentId: string
+    url: string
+    fileUploadType: number
+  }
+  expect(fileUploadType).toBe(0)
+  expect(url).toContain(`/api/ciphers/${id}/attachment/${attachmentId}`)
+
+  const body = new FormData()
+  body.append('data', new File(['ciphertext!'], 'blob'))
+  const upload = await SELF.fetch(url, { method: 'POST', headers: auth, body })
+  expect(upload.status).toBe(200)
+
+  const stored = await env.ATTACHMENTS.get(`${id}/${attachmentId}`)
+  expect(await stored?.text()).toBe('ciphertext!')
+
+  const synced = await getSync()
+  const cipher = synced.ciphers.find((c) => c.id === id) as unknown as {
+    attachments: { id: string; size: string }[]
+  }
+  expect(cipher.attachments).toHaveLength(1)
+  // The size recorded is what actually arrived, not what the client promised.
+  expect(cipher.attachments[0]?.size).toBe('11')
+
+  const removed = await api(`/api/ciphers/${id}/attachment/${attachmentId}`, { method: 'DELETE' })
+  expect(removed.status).toBe(200)
+  expect(await env.ATTACHMENTS.get(`${id}/${attachmentId}`)).toBeNull()
+
+  const after = await getSync()
+  const gone = after.ciphers.find((c) => c.id === id) as unknown as { attachments: null }
+  expect(gone.attachments).toBeNull()
+})
+
+it('will not let a stranger attach a file to someone else’s cipher', async () => {
+  const sql = connect(env)
+  const [org] = await sql<{ id: string }[]>`
+    insert into organizations (name) values ('2.not-mine') returning id`
+  if (!org) throw new Error('expected a row')
+  const [cipher] = await sql<{ id: string }[]>`
+    insert into ciphers (user_id, organization_id, type, data)
+    values (null, ${org.id}, 1, ${sql.json({ name: '2.theirs' })}) returning id`
+  if (!cipher) throw new Error('expected a row')
+
+  const res = await api(`/api/ciphers/${cipher.id}/attachment/v2`, {
+    method: 'POST',
+    body: JSON.stringify({ fileName: '2.x', key: '2.k', fileSize: 1 }),
+  })
+  expect(res.status).toBe(404)
+})

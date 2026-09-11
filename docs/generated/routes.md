@@ -9,17 +9,22 @@ status: active
 
 # Route surface
 
-29 routes.
+40 routes.
 
 | Method | Path |
 |---|---|
 | DELETE | `/api/ciphers/:id` |
+| DELETE | `/api/ciphers/:id/attachment/:attachmentId` |
+| DELETE | `/api/ciphers/:id/attachment/:attachmentId/delete` |
 | DELETE | `/api/folders/:id` |
+| DELETE | `/api/sends/:id` |
 | GET | `/` |
 | GET | `/api/accounts/profile` |
 | GET | `/api/accounts/revision-date` |
 | GET | `/api/ciphers/:id` |
 | GET | `/api/config` |
+| GET | `/api/sends` |
+| GET | `/api/sends/:id` |
 | GET | `/api/sync` |
 | GET | `/attachments/:cipherId/:attachmentId` |
 | GET | `/favicon.ico` |
@@ -30,11 +35,15 @@ status: active
 | POST | `/api/accounts/register` |
 | POST | `/api/ciphers` |
 | POST | `/api/ciphers/:id` |
+| POST | `/api/ciphers/:id/attachment/:attachmentId` |
+| POST | `/api/ciphers/:id/attachment/:attachmentId/delete` |
+| POST | `/api/ciphers/:id/attachment/v2` |
 | POST | `/api/ciphers/:id/delete` |
 | POST | `/api/ciphers/:id/restore` |
 | POST | `/api/ciphers/import` |
 | POST | `/api/folders` |
 | POST | `/api/folders/:id` |
+| POST | `/api/sends` |
 | POST | `/identity/accounts/prelogin` |
 | POST | `/identity/accounts/prelogin/password` |
 | POST | `/identity/connect/token` |
@@ -42,3 +51,5 @@ status: active
 | PUT | `/api/ciphers/:id/delete` |
 | PUT | `/api/ciphers/:id/restore` |
 | PUT | `/api/folders/:id` |
+| PUT | `/api/sends/:id` |
+| PUT | `/api/sends/:id/remove-password` |

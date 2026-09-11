@@ -3,7 +3,18 @@
 A Bitwarden-client-compatible server on Cloudflare Workers — *worker* of
 Cloudflare, *warden* of Bitwarden. Serving `vault.amirsalmani.com`.
 
-**Status: design only. No server code yet.** Do not point a client at this.
+**For personal use only.** This runs one person's vault at
+`vault.amirsalmani.com`. It is not a multi-tenant service, it has not been
+audited, and it is not offered for anyone else to rely on. Self-host it if you
+like the approach, but do so understanding that the only vault it has ever had
+to keep is its author's.
+
+## Scope
+
+A single-user, self-hosted Bitwarden-compatible server. Not a product, not a
+service, and not a drop-in replacement for a Bitwarden subscription. There is no
+signup, no billing, no support, and no promise of compatibility with any client
+version other than the ones tested here.
 
 ## Read first
 

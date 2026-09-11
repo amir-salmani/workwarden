@@ -10,6 +10,10 @@ tags: [workwarden]
 
 # workwarden — docs
 
+**Personal use only.** Everything here describes one person's vault. Nothing in
+this repository is offered as a service or as advice for running someone else's
+credentials.
+
 Read in order. Each one answers a question the next one assumes.
 
 - [FEASIBILITY.md](FEASIBILITY.md) — *Can this be built on the Workers free

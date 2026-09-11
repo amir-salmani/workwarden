@@ -36,7 +36,10 @@ sync.get('/', requireUser(), async (c) => {
         '[]'::jsonb),
       'domains', null,
       'policies', '[]'::jsonb,
-      'sends', '[]'::jsonb,
+      'sends', coalesce(
+        (select jsonb_agg(sd.json order by sd.json->>'name')
+           from send_details sd where sd.user_id = ${user.id}),
+        '[]'::jsonb),
       'object', 'sync'
     )::text as body`
   return c.body(rows[0]?.body ?? '', 200, { 'content-type': 'application/json' })

@@ -8,6 +8,7 @@ import { folders } from './routes/folders.ts'
 import { home } from './routes/home.ts'
 import { icons } from './routes/icons.ts'
 import { identity } from './routes/identity.ts'
+import { sends } from './routes/sends.ts'
 import { sync } from './routes/sync.ts'
 import type { User } from './users.ts'
 
@@ -27,6 +28,7 @@ export function createApp() {
   app.route('/api/sync', sync)
   app.route('/api/ciphers', ciphers)
   app.route('/api/folders', folders)
+  app.route('/api/sends', sends)
   // Outside /api: the URL handed to clients in a cipher's attachment list.
   app.use('/attachments/*', withDb())
   app.route('/attachments', attachments)

@@ -305,6 +305,54 @@ CREATE TABLE public.schema_migrations (
 
 
 --
+-- Name: sends; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.sends (
+    id uuid DEFAULT gen_random_uuid() NOT NULL,
+    user_id uuid,
+    type smallint NOT NULL,
+    name text NOT NULL,
+    notes text,
+    data jsonb DEFAULT '{}'::jsonb NOT NULL,
+    akey text NOT NULL,
+    password_hash text,
+    password_salt text,
+    max_access_count integer,
+    access_count integer DEFAULT 0 NOT NULL,
+    expiration_date timestamp with time zone,
+    deletion_date timestamp with time zone NOT NULL,
+    disabled boolean DEFAULT false NOT NULL,
+    hide_email boolean DEFAULT false NOT NULL,
+    created_at timestamp with time zone DEFAULT now() NOT NULL,
+    revision_date timestamp with time zone DEFAULT now() NOT NULL
+);
+
+
+--
+-- Name: send_details; Type: VIEW; Schema: public; Owner: -
+--
+
+CREATE VIEW public.send_details AS
+ SELECT id,
+    user_id,
+    jsonb_build_object('id', id, 'accessId', replace((id)::text, '-'::text, ''::text), 'type', type, 'name', name, 'notes', notes, 'file',
+        CASE
+            WHEN (type = 1) THEN data
+            ELSE NULL::jsonb
+        END, 'text',
+        CASE
+            WHEN (type = 0) THEN data
+            ELSE NULL::jsonb
+        END, 'key', akey, 'maxAccessCount', max_access_count, 'accessCount', access_count, 'password', password_hash, 'disabled', disabled, 'hideEmail', hide_email, 'revisionDate', public.bw_timestamp(revision_date), 'expirationDate',
+        CASE
+            WHEN (expiration_date IS NULL) THEN NULL::jsonb
+            ELSE to_jsonb(public.bw_timestamp(expiration_date))
+        END, 'deletionDate', public.bw_timestamp(deletion_date), 'object', 'send') AS "json"
+   FROM public.sends s;
+
+
+--
 -- Name: users; Type: TABLE; Schema: public; Owner: -
 --
 
@@ -494,6 +542,14 @@ ALTER TABLE ONLY public.schema_migrations
 
 
 --
+-- Name: sends sends_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.sends
+    ADD CONSTRAINT sends_pkey PRIMARY KEY (id);
+
+
+--
 -- Name: users users_claim_token_key; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
@@ -571,6 +627,13 @@ CREATE INDEX folders_user_id_idx ON public.folders USING btree (user_id);
 --
 
 CREATE INDEX organization_users_user_id_idx ON public.organization_users USING btree (user_id);
+
+
+--
+-- Name: sends_user_id_idx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX sends_user_id_idx ON public.sends USING btree (user_id);
 
 
 --
@@ -675,6 +738,14 @@ ALTER TABLE ONLY public.organization_users
 
 ALTER TABLE ONLY public.organization_users
     ADD CONSTRAINT organization_users_user_id_fkey FOREIGN KEY (user_id) REFERENCES public.users(id) ON DELETE CASCADE;
+
+
+--
+-- Name: sends sends_user_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.sends
+    ADD CONSTRAINT sends_user_id_fkey FOREIGN KEY (user_id) REFERENCES public.users(id) ON DELETE CASCADE;
 
 
 --

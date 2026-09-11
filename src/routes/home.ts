@@ -23,7 +23,11 @@ const PAGE = `<!doctype html>
   li { margin: .3rem 0 }
 </style>
 <h1>workwarden</h1>
-<p class="sub">A Bitwarden-compatible server. This host is an API, not a web vault.</p>
+<p class="sub">A Bitwarden-compatible server, for one person. This host is an
+API, not a web vault.</p>
+
+<p>This is a personal vault. There is no signup, and it is not a service offered
+to anyone else.</p>
 
 <p>There is no web interface here on purpose. Whoever serves a web vault's
 JavaScript can silently ship a version that steals your master password, so this
