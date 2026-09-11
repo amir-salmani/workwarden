@@ -1,7 +1,10 @@
-\restrict dbmate
+--
+-- PostgreSQL database dump
+--
+
 
 -- Dumped from database version 18.6
--- Dumped by pg_dump version 18.6 (Ubuntu 18.6-0ubuntu0.26.04.1)
+-- Dumped by pg_dump version 18.6
 
 SET statement_timeout = 0;
 SET lock_timeout = 0;
@@ -550,25 +553,4 @@ ALTER TABLE ONLY public.two_factors
 -- PostgreSQL database dump complete
 --
 
-\unrestrict dbmate
 
-
---
--- Dbmate schema migrations
---
-
-INSERT INTO public.schema_migrations (version) VALUES
-    ('20260910000001'),
-    ('20260910000002'),
-    ('20260911000003'),
-    ('20260911000004'),
-    ('20260911000005'),
-    ('20260911000006'),
-    ('20260911000007'),
-    ('20260911000008'),
-    ('20260911000009'),
-    ('20260911000010'),
-    ('20260912000010'),
-    ('20260912000011'),
-    ('20260912000012'),
-    ('20260912000013');
