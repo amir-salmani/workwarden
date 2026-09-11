@@ -206,59 +206,6 @@ it('still reports a null key for ciphers that have none', async () => {
   expect((body.ciphers[0] as unknown as { key: string | null }).key).toBeNull()
 })
 
-it('serves organizations, collections and shared ciphers to a member', async () => {
-  const sql = connect(env)
-  const id = async (q: Promise<{ id: string }[]>) => {
-    const [row] = await q
-    if (!row) throw new Error('expected a row')
-    return row.id
-  }
-
-  const me = await id(sql<{ id: string }[]>`select id from users where email = ${ALICE.email}`)
-  const org = await id(
-    sql<{ id: string }[]>`insert into organizations (name) values ('2.acme') returning id`,
-  )
-  await sql`
-    insert into organization_users (organization_id, user_id, akey, status, type, access_all)
-    values (${org}, ${me}, '4.wrapped-org-key', 2, 0, true)`
-  const collection = await id(sql<{ id: string }[]>`
-    insert into collections (organization_id, name) values (${org}, '2.shared') returning id`)
-  const cipher = await id(sql<{ id: string }[]>`
-    insert into ciphers (user_id, organization_id, type, data)
-    values (null, ${org}, 1, ${sql.json({ name: '2.shared-item' })}) returning id`)
-  await sql`
-    insert into collection_ciphers (collection_id, cipher_id) values (${collection}, ${cipher})`
-
-  const body = (await (await api('/api/sync')).json()) as {
-    profile: { organizations: { id: string; key: string; type: number }[] }
-    collections: { id: string; organizationId: string }[]
-    ciphers: { id: string; organizationId: string | null; collectionIds: string[] }[]
-  }
-
-  expect(body.profile.organizations).toHaveLength(1)
-  expect(body.profile.organizations[0]).toMatchObject({ key: '4.wrapped-org-key', type: 0 })
-  expect(body.collections).toHaveLength(1)
-  expect(body.collections[0]?.organizationId).toBe(org)
-
-  const shared = body.ciphers.find((c) => c.id === cipher)
-  expect(shared?.organizationId).toBe(org)
-  expect(shared?.collectionIds).toEqual([collection])
-})
-
-it('hides an organization’s ciphers from someone who is not a member', async () => {
-  const sql = connect(env)
-  const [org] = await sql<{ id: string }[]>`
-    insert into organizations (name) values ('2.secret-org') returning id`
-  if (!org) throw new Error('expected a row')
-  await sql`
-    insert into ciphers (user_id, organization_id, type, data)
-    values (null, ${org.id}, 1, ${sql.json({ name: '2.not-for-alice' })})`
-
-  const body = await getSync()
-  expect(body.ciphers).toHaveLength(0)
-  expect(body.collections).toEqual([])
-})
-
 it('lists an attachment on its cipher and streams the blob', async () => {
   const sql = connect(env)
   const created = await api('/api/ciphers', {
@@ -287,24 +234,6 @@ it('lists an attachment on its cipher and streams the blob', async () => {
   const blob = await SELF.fetch(`${ORIGIN}/attachments/${id}/att1`, { headers: auth })
   expect(blob.status).toBe(200)
   expect(await blob.text()).toBe('encrypted-bytes')
-})
-
-it('will not serve an attachment on a cipher the user cannot see', async () => {
-  const sql = connect(env)
-  const [org] = await sql<{ id: string }[]>`
-    insert into organizations (name) values ('2.other-org') returning id`
-  if (!org) throw new Error('expected a row')
-  const [cipher] = await sql<{ id: string }[]>`
-    insert into ciphers (user_id, organization_id, type, data)
-    values (null, ${org.id}, 1, ${sql.json({ name: '2.theirs' })}) returning id`
-  if (!cipher) throw new Error('expected a row')
-  await sql`
-    insert into attachments (id, cipher_id, file_name, file_size)
-    values ('att2', ${cipher.id}, '2.theirs.pdf', 10)`
-  await env.ATTACHMENTS.put(`${cipher.id}/att2`, 'not-yours')
-
-  const res = await SELF.fetch(`${ORIGIN}/attachments/${cipher.id}/att2`, { headers: auth })
-  expect(res.status).toBe(404)
 })
 
 it('reserves an attachment, accepts the bytes, then deletes it', async () => {
@@ -352,18 +281,41 @@ it('reserves an attachment, accepts the bytes, then deletes it', async () => {
   expect(gone.attachments).toBeNull()
 })
 
-it('will not let a stranger attach a file to someone else’s cipher', async () => {
-  const sql = connect(env)
-  const [org] = await sql<{ id: string }[]>`
-    insert into organizations (name) values ('2.not-mine') returning id`
-  if (!org) throw new Error('expected a row')
-  const [cipher] = await sql<{ id: string }[]>`
-    insert into ciphers (user_id, organization_id, type, data)
-    values (null, ${org.id}, 1, ${sql.json({ name: '2.theirs' })}) returning id`
-  if (!cipher) throw new Error('expected a row')
+it('will not serve an attachment on someone else’s cipher', async () => {
+  const bob = { email: 'bob@example.com', masterPasswordHash: 'Ym9i', key: '2.bobkey' }
+  await register(bob)
+  const bobAuth = await authHeaders(bob)
 
-  const res = await api(`/api/ciphers/${cipher.id}/attachment/v2`, {
+  const created = await api('/api/ciphers', {
     method: 'POST',
+    body: JSON.stringify({ type: 1, name: '2.mine', login: { username: '2.u' } }),
+  })
+  const { id } = (await created.json()) as { id: string }
+
+  const sql = connect(env)
+  await sql`
+    insert into attachments (id, cipher_id, file_name, file_size)
+    values ('att9', ${id}, '2.mine.pdf', 4)`
+  await env.ATTACHMENTS.put(`${id}/att9`, 'mine')
+
+  const res = await SELF.fetch(`${ORIGIN}/attachments/${id}/att9`, { headers: bobAuth })
+  expect(res.status).toBe(404)
+})
+
+it('will not let a stranger attach a file to someone else’s cipher', async () => {
+  const created = await api('/api/ciphers', {
+    method: 'POST',
+    body: JSON.stringify({ type: 1, name: '2.mine', login: { username: '2.u' } }),
+  })
+  const { id } = (await created.json()) as { id: string }
+
+  const bob = { email: 'bob@example.com', masterPasswordHash: 'Ym9i', key: '2.bobkey' }
+  await register(bob)
+  const bobAuth = await authHeaders(bob)
+
+  const res = await SELF.fetch(`${ORIGIN}/api/ciphers/${id}/attachment/v2`, {
+    method: 'POST',
+    headers: { ...bobAuth, 'content-type': 'application/json' },
     body: JSON.stringify({ fileName: '2.x', key: '2.k', fileSize: 1 }),
   })
   expect(res.status).toBe(404)

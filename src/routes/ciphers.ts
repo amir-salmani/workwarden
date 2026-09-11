@@ -200,9 +200,9 @@ ciphers.post('/:id/attachment/:attachmentId', async (c) => {
   const rows = await c.get('sql')<{ file_size: string }[]>`
     select a.file_size
       from attachments a
-      join visible_ciphers vc on vc.cipher_id = a.cipher_id
+      join ciphers ch on ch.id = a.cipher_id
      where a.id = ${attachmentId} and a.cipher_id = ${cipherId}
-       and vc.user_id = ${c.get('user').id}`
+       and ch.user_id = ${c.get('user').id}`
   if (rows.length === 0) return apiError(c, 'Attachment not found', 404)
 
   const form = await c.req.formData().catch(() => null)
@@ -228,7 +228,7 @@ ciphers.delete('/:id', async (c) => {
 
 async function ownedByUser(sql: Sql, userId: string, cipherId: string) {
   const rows = await sql`
-    select 1 from visible_ciphers where cipher_id = ${cipherId} and user_id = ${userId}`
+    select 1 from ciphers where id = ${cipherId} and user_id = ${userId}`
   return rows.length > 0
 }
 
@@ -238,10 +238,10 @@ async function removeAttachment(c: Context<App>) {
   const sql = c.get('sql')
   const rows = await sql<{ id: string }[]>`
     delete from attachments a
-     using visible_ciphers vc
-     where vc.cipher_id = a.cipher_id
+     using ciphers ch
+     where ch.id = a.cipher_id
        and a.id = ${attachmentId} and a.cipher_id = ${cipherId}
-       and vc.user_id = ${c.get('user').id}
+       and ch.user_id = ${c.get('user').id}
     returning a.id`
   if (rows.length === 0) return apiError(c, 'Attachment not found', 404)
   // The row is the record of existence; a blob without one is unreachable.
@@ -258,8 +258,6 @@ function blob(body: Record<string, unknown>): JSONValue {
 async function detail(sql: Sql, userId: string, id: string, origin: string) {
   const rows = await sql<{ json: unknown }[]>`
     select cipher_json(ch, ${origin}) as json
-      from ciphers ch
-      join visible_ciphers vc on vc.cipher_id = ch.id
-     where ch.id = ${id} and vc.user_id = ${userId}`
+      from ciphers ch where ch.id = ${id} and ch.user_id = ${userId}`
   return rows[0]?.json
 }

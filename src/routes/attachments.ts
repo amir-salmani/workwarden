@@ -9,9 +9,8 @@ export const attachments = new Hono<App>()
  *
  * The bytes are already encrypted with the attachment's own key before they
  * ever reach the server, so R2 holds ciphertext and this route streams it
- * unchanged. Access is still checked: `visible_ciphers` decides who may read
- * the cipher an attachment hangs off, so a shared attachment follows the same
- * rules as the item it belongs to.
+ * unchanged. Access is still checked against the owning cipher, so an
+ * attachment is exactly as reachable as the item it hangs off.
  */
 attachments.get('/:cipherId/:attachmentId', requireUser(), async (c) => {
   const { cipherId, attachmentId } = c.req.param()
@@ -19,10 +18,10 @@ attachments.get('/:cipherId/:attachmentId', requireUser(), async (c) => {
   const rows = await c.get('sql')<{ id: string }[]>`
     select a.id
       from attachments a
-      join visible_ciphers vc on vc.cipher_id = a.cipher_id
+      join ciphers ch on ch.id = a.cipher_id
      where a.cipher_id = ${cipherId}
        and a.id = ${attachmentId}
-       and vc.user_id = ${c.get('user').id}`
+       and ch.user_id = ${c.get('user').id}`
   if (rows.length === 0) return c.body(null, 404)
 
   const object = await c.env.ATTACHMENTS.get(`${cipherId}/${attachmentId}`)

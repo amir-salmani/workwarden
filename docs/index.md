@@ -26,6 +26,8 @@ Read in order. Each one answers a question the next one assumes.
 - [BACKUP.md](BACKUP.md) — *What happens when Cloudflare or Neon vanishes?* An
   age-encrypted Bitwarden-format export, restorable, and tested by destroying a
   vault on every pull request.
+- [FLATTENING.md](FLATTENING.md) — *Why are there no organizations?* One user
+  does not need a second key hierarchy; shared items became folders.
 - [MIGRATION.md](MIGRATION.md) — *How does an existing Vaultwarden vault get
   here?* Through a client, never the database — the password hashes are not
   convertible.
