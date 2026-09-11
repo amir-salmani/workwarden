@@ -30,13 +30,26 @@ if (!process.env.BW_SESSION) throw new Error('BW_SESSION is required; run `bw un
 const binary = fileURLToPath(new URL('../node_modules/.bin/bw', import.meta.url))
 const runner = existsSync(binary) ? [binary, []] : ['npx', ['--no-install', 'bw']]
 
-const bw = (args, input) =>
-  execFileSync(runner[0], [...runner[1], ...args], {
-    input,
-    encoding: 'utf8',
-    maxBuffer: 64 * 1024 * 1024,
-    env: process.env,
-  })
+// A few hundred calls over a flaky link will meet a dropped connection. Retry
+// those; anything that is not a network error fails immediately.
+const bw = (args, input) => {
+  for (let attempt = 1; ; attempt++) {
+    try {
+      return execFileSync(runner[0], [...runner[1], ...args], {
+        input,
+        encoding: 'utf8',
+        maxBuffer: 64 * 1024 * 1024,
+        env: process.env,
+      })
+    } catch (e) {
+      const transient = /FetchError|ECONNRESET|ETIMEDOUT|ENETUNREACH|socket hang up/.test(
+        String(e.stderr ?? e.message),
+      )
+      if (!transient || attempt >= 5) throw e
+      execFileSync('sleep', [String(attempt * 2)])
+    }
+  }
+}
 
 const json = (args) => JSON.parse(bw(args))
 const encode = (value) => bw(['encode'], JSON.stringify(value)).trim()
@@ -120,7 +133,11 @@ for (const [name, group] of [...plan].sort()) {
   }
 
   for (const item of group) {
-    if (personal.some((p) => p.name === item.name && p.folderId === folderId)) {
+    const existing = personal.find((p) => p.name === item.name && p.folderId === folderId)
+    if (existing) {
+      // An interrupted run can leave a trashed item's copy created but still
+      // live. Finish the job rather than skipping it half done.
+      if (item.fromTrash && !existing.deletedDate) bw(['delete', 'item', existing.id])
       skipped++
       continue
     }
