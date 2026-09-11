@@ -1,7 +1,7 @@
 import { env, SELF } from 'cloudflare:test'
 import { beforeEach, expect, it } from 'vitest'
 import { connect } from '../src/db.ts'
-import { ALICE, authHeaders, ORIGIN, register, resetDatabase } from './support.ts'
+import { authHeaders, ORIGIN, register, resetDatabase } from './support.ts'
 
 type Sync = {
   profile: { email: string }
