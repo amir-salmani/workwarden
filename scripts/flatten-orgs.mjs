@@ -18,13 +18,20 @@
 // Re-running is safe. An item already copied into its folder is skipped, so an
 // interrupted run resumes instead of duplicating.
 import { execFileSync } from 'node:child_process'
+import { existsSync } from 'node:fs'
+import { fileURLToPath } from 'node:url'
 
 const apply = process.argv.includes('--apply')
 const useCollections = process.argv.includes('--collections')
 if (!process.env.BW_SESSION) throw new Error('BW_SESSION is required; run `bw unlock --raw` first')
 
+// Spawn the binary directly. Through npx this is a process launch per call,
+// and a vault of a few hundred items makes hundreds of calls.
+const binary = fileURLToPath(new URL('../node_modules/.bin/bw', import.meta.url))
+const runner = existsSync(binary) ? [binary, []] : ['npx', ['--no-install', 'bw']]
+
 const bw = (args, input) =>
-  execFileSync('npx', ['--no-install', 'bw', ...args], {
+  execFileSync(runner[0], [...runner[1], ...args], {
     input,
     encoding: 'utf8',
     maxBuffer: 64 * 1024 * 1024,
@@ -39,7 +46,14 @@ bw(['sync'])
 const orgs = new Map(json(['list', 'organizations']).map((o) => [o.id, o.name]))
 const collections = new Map(json(['list', 'collections']).map((c) => [c.id, c.name]))
 const items = json(['list', 'items'])
-const shared = items.filter((i) => i.organizationId)
+// `bw list items` hides the trash. Dropping the organizations would destroy
+// trashed shared items along with everything else, so they are carried across
+// too and put back in the personal trash, where they can be reviewed and
+// emptied on purpose rather than lost as a side effect.
+const trashed = json(['list', 'items', '--trash'])
+const shared = [...items, ...trashed.map((t) => ({ ...t, fromTrash: true }))].filter(
+  (i) => i.organizationId,
+)
 
 if (shared.length === 0) {
   console.log('Nothing to flatten: no organization items in this vault.')
@@ -64,7 +78,12 @@ for (const item of shared) {
   plan.get(name).push(item)
 }
 
-console.log(`${shared.length} shared item(s) across ${orgs.size} organization(s)\n`)
+const inTrash = shared.filter((i) => i.fromTrash).length
+console.log(
+  `${shared.length} shared item(s) across ${orgs.size} organization(s)` +
+    (inTrash ? ` -- ${inTrash} of them in the trash, which stay in the trash` : '') +
+    '\n',
+)
 for (const [name, group] of [...plan].sort()) {
   console.log(`  ${String(group.length).padStart(3)} -> ${name}`)
 }
@@ -88,7 +107,7 @@ const folders = new Map(
     .map((f) => [f.name, f.id]),
 )
 
-const personal = items.filter((i) => !i.organizationId)
+const personal = [...items, ...trashed].filter((i) => !i.organizationId)
 let copied = 0
 let skipped = 0
 
@@ -105,24 +124,39 @@ for (const [name, group] of [...plan].sort()) {
       skipped++
       continue
     }
-    const { id, organizationId, collectionIds, revisionDate, creationDate, ...rest } = item
+    const {
+      id,
+      organizationId,
+      collectionIds,
+      revisionDate,
+      creationDate,
+      deletedDate,
+      fromTrash,
+      ...rest
+    } = item
     const created = json(['create', 'item', encode({ ...rest, folderId })])
 
     // Read it back. A copy that does not decrypt is worse than no copy, because
     // the original is about to be dropped.
     const check = json(['get', 'item', created.id])
     if (check.name !== item.name) throw new Error(`copy of ${item.name} did not read back`)
+
+    // Soft delete: this is the trash, not a purge.
+    if (fromTrash) bw(['delete', 'item', created.id])
     copied++
   }
   console.log(`  ${name}: ${group.length} item(s)`)
 }
 
 bw(['sync'])
-const after = json(['list', 'items'])
-const stillShared = after.filter((i) => i.organizationId).length
-const nowPersonal = after.filter((i) => !i.organizationId).length
+const liveAfter = json(['list', 'items'])
+const trashAfter = json(['list', 'items', '--trash'])
+const count = (list, shared) => list.filter((i) => Boolean(i.organizationId) === shared).length
 
 console.log(`\nCopied ${copied}${skipped ? `, skipped ${skipped} already present` : ''}.`)
-console.log(`Personal items: ${nowPersonal}. Organization items still present: ${stillShared}.`)
+console.log(`Personal: ${count(liveAfter, false)} live, ${count(trashAfter, false)} in trash.`)
+console.log(
+  `Organization originals still present: ${count(liveAfter, true)} live, ${count(trashAfter, true)} in trash.`,
+)
 console.log('\nEvery shared item now has a personal copy. The originals go when the')
 console.log('organization tables are dropped -- run that only once this looks right.')
