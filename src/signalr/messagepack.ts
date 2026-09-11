@@ -59,14 +59,14 @@ export function encode(value: Packable): Uint8Array {
 }
 
 function write(w: Writer, value: Packable): void {
-  if (value === null || value === undefined) return w.byte(0xc0)
-  if (typeof value === 'boolean') return w.byte(value ? 0xc3 : 0xc2)
-  if (typeof value === 'number') return writeNumber(w, value)
-  if (typeof value === 'string') return writeString(w, value)
-  if (value instanceof Uint8Array) return writeBinary(w, value)
-  if (Array.isArray(value)) return writeArray(w, value)
-  if (typeof value === 'object') return writeMap(w, value)
-  throw new TypeError(`messagepack: cannot encode ${typeof value}`)
+  if (value === null || value === undefined) w.byte(0xc0)
+  else if (typeof value === 'boolean') w.byte(value ? 0xc3 : 0xc2)
+  else if (typeof value === 'number') writeNumber(w, value)
+  else if (typeof value === 'string') writeString(w, value)
+  else if (value instanceof Uint8Array) writeBinary(w, value)
+  else if (Array.isArray(value)) writeArray(w, value)
+  else if (typeof value === 'object') writeMap(w, value)
+  else throw new TypeError(`messagepack: cannot encode ${typeof value}`)
 }
 
 function writeNumber(w: Writer, n: number) {

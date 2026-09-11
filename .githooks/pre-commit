@@ -3,6 +3,7 @@
 set -e
 
 npx tsc --noEmit
+npx biome check .
 node scripts/route-surface.mjs --check
 
 # OKF lint is a machine-local skill, not a dependency of this repo.

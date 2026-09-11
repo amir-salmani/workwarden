@@ -1,8 +1,13 @@
 name: deploy
 
+# Runs after ci succeeds on master, never alongside it. Triggering on push
+# meant a failing check never stopped a deploy -- six red commits shipped.
 on:
-  push:
+  workflow_run:
+    workflows: [ci]
+    types: [completed]
     branches: [master]
+  workflow_dispatch:
 
 permissions:
   contents: read
@@ -13,10 +18,14 @@ concurrency:
 
 jobs:
   deploy:
+    if: github.event_name == 'workflow_dispatch' || github.event.workflow_run.conclusion == 'success'
     runs-on: ubuntu-latest
     environment: production
     steps:
+      # The commit ci checked, not whatever master points at by now.
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ github.event.workflow_run.head_sha || github.sha }}
       - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
         with:
           node-version: 24
