@@ -17,6 +17,15 @@ import {
  * resident and billed the whole time. Hibernating means the sockets survive
  * while the object does not.
  */
+/** The close codes a server is allowed to send. RFC 6455 §7.4.1. */
+export function echoable(code: number): boolean {
+  return (
+    (code >= 1000 && code <= 1003) ||
+    (code >= 1007 && code <= 1011) ||
+    (code >= 3000 && code <= 4999)
+  )
+}
+
 export class NotificationHub extends DurableObject {
   async fetch(request: Request): Promise<Response> {
     const url = new URL(request.url)
@@ -67,8 +76,11 @@ export class NotificationHub extends DurableObject {
   }
 
   webSocketClose(ws: WebSocket, code: number, reason: string): void {
-    // 1005 means "no status", which close() rejects as an argument.
-    ws.close(code === 1005 ? 1000 : code, reason)
+    // Reserved codes cannot be passed back to close(): 1005 is "no status" and
+    // 1006 is an abrupt drop, which is what a phone leaving a tunnel produces.
+    // Echoing one throws inside the hub. The reason is capped at 123 bytes for
+    // the same reason.
+    ws.close(echoable(code) ? code : 1000, reason.slice(0, 123))
   }
 
   broadcast(type: number, payload: Packable): number {

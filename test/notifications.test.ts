@@ -1,5 +1,6 @@
 import { SELF } from 'cloudflare:test'
 import { beforeEach, expect, it } from 'vitest'
+import { echoable } from '../src/notifications.ts'
 import { MessageType, RECORD_SEPARATOR, unframe } from '../src/signalr/protocol.ts'
 import { authHeaders, ORIGIN, register, resetDatabase } from './support.ts'
 
@@ -122,4 +123,16 @@ it('delivers a cipher change to a connected client', async () => {
   expect(arg.Type).toBe(1) // SyncCipherCreate
   expect(typeof arg.Payload.Id).toBe('string')
   ws.close()
+})
+
+it('never echoes a close code the runtime would reject', () => {
+  // Production threw on 1006 -- an abrupt drop, which is what a phone leaving a
+  // tunnel sends, so the normal case was the failing one.
+  expect(echoable(1005)).toBe(false)
+  expect(echoable(1006)).toBe(false)
+  expect(echoable(1004)).toBe(false)
+  expect(echoable(1015)).toBe(false)
+  expect(echoable(1000)).toBe(true)
+  expect(echoable(1011)).toBe(true)
+  expect(echoable(4000)).toBe(true)
 })
