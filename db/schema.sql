@@ -152,7 +152,7 @@ CREATE TABLE public.users (
     id uuid DEFAULT gen_random_uuid() NOT NULL,
     email public.citext NOT NULL,
     name text,
-    password_hash text NOT NULL,
+    password_hash text,
     salt text NOT NULL,
     password_hint text,
     kdf_type smallint DEFAULT 0 NOT NULL,
@@ -164,8 +164,26 @@ CREATE TABLE public.users (
     public_key text,
     security_stamp uuid DEFAULT gen_random_uuid() NOT NULL,
     created_at timestamp with time zone DEFAULT now() NOT NULL,
-    revision_date timestamp with time zone DEFAULT now() NOT NULL
+    revision_date timestamp with time zone DEFAULT now() NOT NULL,
+    claim_token text,
+    claimed_at timestamp with time zone,
+    CONSTRAINT users_claimable_xor_usable CHECK ((num_nonnulls(password_hash, claim_token) = 1))
 );
+
+
+--
+-- Name: vault_export; Type: VIEW; Schema: public; Owner: -
+--
+
+CREATE VIEW public.vault_export AS
+ SELECT id AS user_id,
+    email,
+    jsonb_build_object('encrypted', true, 'workwarden', jsonb_build_object('formatVersion', 1, 'exportedAt', public.bw_timestamp(now()), 'account', jsonb_build_object('id', id, 'email', email, 'name', name, 'passwordHash', password_hash, 'salt', salt, 'passwordHint', password_hint, 'kdfType', kdf_type, 'kdfIterations', kdf_iterations, 'kdfMemory', kdf_memory, 'kdfParallelism', kdf_parallelism, 'key', akey, 'privateKey', private_key, 'publicKey', public_key)), 'folders', COALESCE(( SELECT jsonb_agg(jsonb_build_object('id', f.id, 'name', f.name)) AS jsonb_agg
+           FROM public.folders f
+          WHERE (f.user_id = u.id)), '[]'::jsonb), 'items', COALESCE(( SELECT jsonb_agg((((((((c."json" - 'edit'::text) - 'viewPassword'::text) - 'object'::text) - 'attachments'::text) - 'organizationUseTotp'::text) - 'collectionIds'::text) || jsonb_build_object('collectionIds', NULL::unknown))) AS jsonb_agg
+           FROM public.cipher_details c
+          WHERE (c.user_id = u.id)), '[]'::jsonb)) AS export
+   FROM public.users u;
 
 
 --
@@ -206,6 +224,14 @@ ALTER TABLE ONLY public.folders
 
 ALTER TABLE ONLY public.schema_migrations
     ADD CONSTRAINT schema_migrations_pkey PRIMARY KEY (version);
+
+
+--
+-- Name: users users_claim_token_key; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.users
+    ADD CONSTRAINT users_claim_token_key UNIQUE (claim_token);
 
 
 --

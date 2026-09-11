@@ -9,7 +9,7 @@ status: active
 
 # Route surface
 
-25 routes.
+27 routes.
 
 | Method | Path |
 |---|---|
@@ -23,12 +23,14 @@ status: active
 | GET | `/api/sync` |
 | GET | `/favicon.ico` |
 | GET | `/robots.txt` |
+| POST | `/api/accounts/claim` |
 | POST | `/api/accounts/prelogin` |
 | POST | `/api/accounts/register` |
 | POST | `/api/ciphers` |
 | POST | `/api/ciphers/:id` |
 | POST | `/api/ciphers/:id/delete` |
 | POST | `/api/ciphers/:id/restore` |
+| POST | `/api/ciphers/import` |
 | POST | `/api/folders` |
 | POST | `/api/folders/:id` |
 | POST | `/identity/accounts/prelogin` |

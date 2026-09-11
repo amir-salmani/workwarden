@@ -1,5 +1,7 @@
-import { SELF } from 'cloudflare:test'
+import { env, SELF } from 'cloudflare:test'
 import { beforeEach, expect, it } from 'vitest'
+import { randomSalt } from '../src/auth/kdf.ts'
+import { connect } from '../src/db.ts'
 import { ALICE, authHeaders, login, ORIGIN, register, resetDatabase } from './support.ts'
 
 beforeEach(resetDatabase)
@@ -79,4 +81,51 @@ it('serves a page at the root that is not a login form', async () => {
   expect(html).toContain('workwarden')
   expect(html).not.toContain('<input')
   expect(html).not.toContain('<script')
+})
+
+it('refuses to log in to an imported account until it is claimed, then allows it', async () => {
+  const sql = connect(env)
+  const salt = randomSalt()
+  await sql`
+    insert into users (email, name, password_hash, salt, akey, claim_token)
+    values ('imported@example.com', 'Imported', null, ${salt}, '2.key', 'claim-token-long-enough')`
+
+  const before = await login({ ...ALICE, email: 'imported@example.com' })
+  expect(before.status).toBe(400)
+
+  const claim = await SELF.fetch(`${ORIGIN}/api/accounts/claim`, {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify({
+      email: 'imported@example.com',
+      token: 'claim-token-long-enough',
+      masterPasswordHash: ALICE.masterPasswordHash,
+    }),
+  })
+  expect(claim.status).toBe(200)
+
+  const after = await login({ ...ALICE, email: 'imported@example.com' })
+  expect(after.status).toBe(200)
+})
+
+it('refuses a wrong claim token, and a replayed one', async () => {
+  const sql = connect(env)
+  await sql`
+    insert into users (email, password_hash, salt, akey, claim_token)
+    values ('replay@example.com', null, ${randomSalt()}, '2.key', 'the-real-claim-token')`
+
+  const claimWith = (token: string) =>
+    SELF.fetch(`${ORIGIN}/api/accounts/claim`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({
+        email: 'replay@example.com',
+        token,
+        masterPasswordHash: ALICE.masterPasswordHash,
+      }),
+    })
+
+  expect((await claimWith('the-wrong-claim-tokn')).status).toBe(400)
+  expect((await claimWith('the-real-claim-token')).status).toBe(200)
+  expect((await claimWith('the-real-claim-token')).status).toBe(400)
 })

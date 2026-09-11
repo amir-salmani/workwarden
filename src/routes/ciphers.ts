@@ -57,6 +57,55 @@ ciphers.post('/', async (c) => {
   return c.json(await detail(c.get('sql'), c.get('user').id, id))
 })
 
+/**
+ * Bulk import, used by `bw import` and the web vault's importer. It must be
+ * declared before `/:id`, or that route matches "import" as a cipher id and
+ * answers 400 -- which is exactly how this endpoint's absence presented.
+ *
+ * `folderRelationships` maps an index in `ciphers` to an index in `folders`,
+ * because neither list has server ids yet.
+ */
+const importInput = z.object({
+  ciphers: z.array(z.record(z.string(), z.unknown())).default([]),
+  folders: z.array(z.object({ name: z.string() })).default([]),
+  folderRelationships: z.array(z.object({ key: z.number(), value: z.number() })).default([]),
+})
+
+ciphers.post('/import', async (c) => {
+  const parsed = importInput.safeParse(insensitive(await c.req.json()))
+  if (!parsed.success) return apiError(c, 'Import data is malformed')
+
+  const { ciphers: incoming, folders: incomingFolders, folderRelationships } = parsed.data
+  const userId = c.get('user').id
+  const sql = c.get('sql')
+
+  await sql.begin(async (tx) => {
+    const folderIds: string[] = []
+    for (const folder of incomingFolders) {
+      const rows = await tx<{ id: string }[]>`
+        insert into folders (user_id, name) values (${userId}, ${folder.name}) returning id`
+      folderIds.push(rows[0]?.id ?? '')
+    }
+
+    const folderFor = new Map(folderRelationships.map((r) => [r.key, folderIds[r.value]]))
+
+    for (const [index, raw] of incoming.entries()) {
+      const cipher = insensitive(raw)
+      const parsedCipher = cipherInput.safeParse(cipher)
+      if (!parsedCipher.success) continue
+      await tx`
+        insert into ciphers (user_id, folder_id, type, data, favorite, reprompt)
+        values (
+          ${userId}, ${folderFor.get(index) ?? null}, ${parsedCipher.data.type},
+          ${tx.json(blob(cipher))}, ${parsedCipher.data.favorite ?? false},
+          ${parsedCipher.data.reprompt ?? 0}
+        )`
+    }
+  })
+
+  return c.body(null, 200)
+})
+
 ciphers.get('/:id', async (c) => {
   const found = await detail(c.get('sql'), c.get('user').id, c.req.param('id'))
   return found ? c.json(found) : apiError(c, 'Cipher not found', 404)

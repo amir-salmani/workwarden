@@ -1,7 +1,7 @@
 import { Hono } from 'hono'
 import { z } from 'zod'
 import type { App } from '../app.ts'
-import { deriveAuthHash, randomSalt } from '../auth/kdf.ts'
+import { constantTimeEquals, deriveAuthHash, randomSalt } from '../auth/kdf.ts'
 import { requireUser } from '../auth/session.ts'
 import { apiError, insensitive } from '../http.ts'
 import { DEFAULT_KDF, findByEmail, type User } from '../users.ts'
@@ -51,6 +51,48 @@ accounts.post('/register', async (c) => {
 })
 
 accounts.post('/prelogin', prelogin)
+
+/**
+ * Redeem a one-time token issued when a vault was imported from Vaultwarden,
+ * setting the password hash that server could not hand over. See
+ * docs/MIGRATION.md.
+ *
+ * `masterPasswordHash` is the same value a normal login sends: the client-side
+ * hash of the master password. The server still never sees the password, and
+ * the vault's key material is untouched -- this only establishes how the
+ * account authenticates from now on.
+ */
+const claim = z.object({
+  email: z.string().email(),
+  token: z.string().min(16),
+  masterPasswordHash: z.string().min(1),
+})
+
+accounts.post('/claim', async (c) => {
+  const parsed = claim.safeParse(insensitive(await c.req.json()))
+  if (!parsed.success) return apiError(c, 'Claim is missing required fields')
+
+  const sql = c.get('sql')
+  const user = await findByEmail(sql, parsed.data.email)
+  if (!user?.claim_token || user.password_hash !== null) {
+    return apiError(c, 'That account is not awaiting a claim')
+  }
+  if (!constantTimeEquals(user.claim_token, parsed.data.token)) {
+    return apiError(c, 'That account is not awaiting a claim')
+  }
+
+  const passwordHash = await deriveAuthHash(
+    parsed.data.masterPasswordHash,
+    user.salt,
+    c.env.AUTH_PEPPER,
+  )
+  await sql`
+    update users
+       set password_hash = ${passwordHash}, claim_token = null, claimed_at = now()
+     where id = ${user.id}`
+
+  return c.body(null, 200)
+})
 
 accounts.get('/profile', requireUser(), (c) => c.json(profile(c.get('user'))))
 

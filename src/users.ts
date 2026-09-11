@@ -4,7 +4,9 @@ export type User = {
   id: string
   email: string
   name: string | null
-  password_hash: string
+  password_hash: string | null
+  claim_token: string | null
+  claimed_at: Date | null
   salt: string
   password_hint: string | null
   kdf_type: number
