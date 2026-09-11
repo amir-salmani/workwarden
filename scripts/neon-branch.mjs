@@ -4,6 +4,7 @@
 // production.
 //
 //   node scripts/neon-branch.mjs create pr-12   -> prints the connection string
+//   node scripts/neon-branch.mjs reset  pr-12   -> fresh copy of production, then as create
 //   node scripts/neon-branch.mjs delete pr-12
 const [, , action, name] = process.argv
 const project = process.env.NEON_PROJECT_ID
@@ -28,6 +29,21 @@ const api = async (path, init = {}) => {
 const find = async () => {
   const { branches } = await api('/branches')
   return branches.find((b) => b.name === name)
+}
+
+// A preview reused across pushes keeps whatever migrations ran on it before. A
+// PR that later gains an earlier-numbered migration from master then applies
+// it on top of a schema that has moved on -- the permissions migration hit
+// exactly that. Previews start from production every time instead.
+if (action === 'reset') {
+  const stale = await find()
+  if (stale) {
+    await api(`/branches/${stale.id}`, { method: 'DELETE' })
+    console.error(`dropped stale branch ${name}`)
+    // Neon finishes deleting asynchronously; creating the same name at once
+    // can race it.
+    for (let i = 0; i < 20 && (await find()); i++) await new Promise((r) => setTimeout(r, 1500))
+  }
 }
 
 if (action === 'delete') {

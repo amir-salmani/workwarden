@@ -30,10 +30,12 @@ jobs:
       - run: npm ci
 
       # A branch is a copy-on-write clone, so this is near-instant and isolated.
+      # Reset, not reused: a preview carries the migrations it ran last time,
+      # and a newer master can add one that sorts before them.
       - name: Neon branch for this PR
         id: neon
         run: |
-          uri=$(node scripts/neon-branch.mjs create "$RESOURCE")
+          uri=$(node scripts/neon-branch.mjs reset "$RESOURCE")
           echo "::add-mask::$uri"
           echo "uri=$uri" >> "$GITHUB_OUTPUT"
 
