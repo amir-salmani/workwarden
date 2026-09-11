@@ -32,6 +32,13 @@
       "localConnectionString": "postgresql://postgres:dev@127.0.0.1:5432/workwarden"
     }
   ],
+  // Who may register. A whole address or @domain, comma-separated; unset means
+  // nobody, so a missing value fails closed. This is config, not a secret: the
+  // only address on it is CI's, and .invalid can never receive mail. To allow a
+  // real address without publishing it, delete this line and set a Worker
+  // secret of the same name instead -- one or the other, never both.
+  "vars": { "SIGNUP_ALLOWLIST": "smoke@workwarden.invalid" },
+
   // Attachment blobs. Already encrypted with the attachment's own key before
   // they reach us, so R2 holds ciphertext.
   "r2_buckets": [{ "binding": "ATTACHMENTS", "bucket_name": "workwarden-attachments" }],
@@ -76,6 +83,9 @@
           "localConnectionString": "postgresql://postgres:dev@127.0.0.1:5432/workwarden"
         }
       ],
+      // Previews register throwaway accounts: the smoke test, the compat suite
+      // and the restore test all do.
+      "vars": { "SIGNUP_ALLOWLIST": "@workwarden.invalid" },
       "r2_buckets": [{ "binding": "ATTACHMENTS", "bucket_name": "workwarden-attachments-preview" }],
       "durable_objects": {
         "bindings": [
