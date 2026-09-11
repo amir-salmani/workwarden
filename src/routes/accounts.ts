@@ -23,6 +23,20 @@ const registration = z.object({
   kdfParallelism: z.number().nullish(),
 })
 
+/**
+ * Registration is closed unless the address is listed in `SIGNUP_ALLOWLIST` --
+ * comma-separated, either a whole address or `@domain`. Unset means closed:
+ * this server holds one person's vault, and an open signup endpoint on it is
+ * free storage for strangers and accounts nobody is watching.
+ */
+export function signupAllowed(allowlist: string | undefined, email: string): boolean {
+  return (allowlist ?? '')
+    .split(',')
+    .map((entry) => entry.trim().toLowerCase())
+    .filter(Boolean)
+    .some((entry) => (entry.startsWith('@') ? email.endsWith(entry) : entry === email))
+}
+
 accounts.post('/register', async (c) => {
   const parsed = registration.safeParse(insensitive(await c.req.json()))
   if (!parsed.success) return apiError(c, 'Registration is missing required fields')
@@ -31,6 +45,9 @@ accounts.post('/register', async (c) => {
   const email = r.email.toLowerCase()
   const sql = c.get('sql')
 
+  if (!signupAllowed(c.env.SIGNUP_ALLOWLIST, email)) {
+    return apiError(c, 'Registration is closed on this server')
+  }
   if (await findByEmail(sql, email)) return apiError(c, 'User already exists')
 
   const salt = randomSalt()

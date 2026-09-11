@@ -1,3 +1,5 @@
 # Copy to .dev.vars (gitignored). Real values are not in this repo.
 AUTH_PEPPER=
 JWT_SECRET=
+# Who may register: whole addresses or @domain, comma-separated. Empty = nobody.
+SIGNUP_ALLOWLIST=

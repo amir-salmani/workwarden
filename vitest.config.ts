@@ -17,6 +17,7 @@ export default defineConfig({
         bindings: {
           AUTH_PEPPER: 'test-pepper',
           JWT_SECRET: 'test-secret',
+          SIGNUP_ALLOWLIST: '@example.com',
         },
       },
     }),

@@ -2,6 +2,7 @@ import { env, SELF } from 'cloudflare:test'
 import { beforeEach, expect, it } from 'vitest'
 import { randomSalt } from '../src/auth/kdf.ts'
 import { connect } from '../src/db.ts'
+import { signupAllowed } from '../src/routes/accounts.ts'
 import { ALICE, authHeaders, login, ORIGIN, register, resetDatabase } from './support.ts'
 
 beforeEach(resetDatabase)
@@ -217,4 +218,29 @@ it('rotates the account key and every item with it, in one transaction', async (
   expect(sync.profile.key).toBe('2.rotated-user-key')
   expect(sync.ciphers[0]?.name).toBe('2.new-wrapping')
   expect(sync.folders[0]?.name).toBe('2.new-folder')
+})
+
+it('turns away an address that is not on the signup allowlist', async () => {
+  const stranger = await SELF.fetch(`${ORIGIN}/api/accounts/register`, {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify({
+      email: 'stranger@elsewhere.test',
+      masterPasswordHash: 'aGFzaA==',
+      key: '2.key',
+      kdf: 0,
+      kdfIterations: 600000,
+    }),
+  })
+  expect(stranger.status).toBe(400)
+  expect(await stranger.json()).toMatchObject({ message: 'Registration is closed on this server' })
+})
+
+it('reads the allowlist as whole addresses or @domain, and closed when empty', () => {
+  expect(signupAllowed('@example.com', 'alice@example.com')).toBe(true)
+  expect(signupAllowed('@example.com', 'alice@example.com.attacker.test')).toBe(false)
+  expect(signupAllowed(' Alice@Example.com , @other.test ', 'alice@example.com')).toBe(true)
+  expect(signupAllowed('alice@example.com', 'bob@example.com')).toBe(false)
+  expect(signupAllowed('', 'alice@example.com')).toBe(false)
+  expect(signupAllowed(undefined, 'alice@example.com')).toBe(false)
 })

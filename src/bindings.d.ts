@@ -9,6 +9,7 @@ type WorkwardenSecrets = {
 
   AUTH_PEPPER: string
   JWT_SECRET: string
+  SIGNUP_ALLOWLIST: string
 }
 
 interface Env extends WorkwardenSecrets {}

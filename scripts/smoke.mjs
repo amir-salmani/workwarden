@@ -14,7 +14,8 @@ if (!process.env.DATABASE_URL) {
   throw new Error('DATABASE_URL is required so smoke users can be removed')
 }
 
-const email = `smoke-${Date.now()}@workwarden.invalid`
+// Fixed, not random: production only lets allowlisted addresses register.
+const email = 'smoke@workwarden.invalid'
 const hash = Buffer.from(`smoke-${Date.now()}`).toString('base64')
 
 const step = async (name, fn) => {
@@ -55,7 +56,7 @@ const ready = async () => {
 const cleanup = async () => {
   const sql = postgres(process.env.DATABASE_URL)
   const gone =
-    await sql`delete from users where email like 'smoke-%@workwarden.invalid' returning id`
+    await sql`delete from users where email like 'smoke%@workwarden.invalid' returning id`
   await sql.end()
   console.log(`ok   cleaned up ${gone.length} smoke user(s)`)
 }
