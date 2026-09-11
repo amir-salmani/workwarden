@@ -5,7 +5,10 @@ description: What driving a stock `bw` at workwarden has proved, and where it cu
 status: open
 created: 2026-09-10
 timestamp: 2026-09-10
-tags: [workwarden, compat, bitwarden, phase1]
+tags: [workwarden, compat, bitwarden]
+related:
+  - ../docs/FEASIBILITY.md
+  - ../docs/STACK.md
 ---
 
 # Bitwarden CLI compatibility
@@ -16,7 +19,8 @@ done. This is that suite. `bitwarden-crypto.mjs` reproduces Bitwarden's
 client-side key derivation so an account can be created that a stock
 `@bitwarden/cli` will accept.
 
-Run against `wrangler dev --local-protocol https` — `bw` refuses plain HTTP.
+Run against `wrangler dev --local-protocol https` — `bw` refuses plain HTTP. CI
+runs it on every pull request against that PR's preview Worker.
 
 ## Status: a stock client works
 

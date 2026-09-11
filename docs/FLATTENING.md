@@ -2,7 +2,7 @@
 type: Decision Record
 title: Organizations removed, flattened into folders
 description: Why a single-user vault drops sharing, and the order the change has to happen in.
-status: open
+status: settled
 created: 2026-09-12
 timestamp: 2026-09-12
 tags: [workwarden, organizations, folders, migration]
@@ -63,3 +63,9 @@ Proven against a synthetic vault with real Bitwarden crypto: two organizations,
 three collections, six shared items. Every original ended with an identical
 personal copy — same name, same password, correct folder — and the run is
 resumable, skipping items already copied.
+
+**Then run for real on 2026-09-11.** The production vault holds 0 organizations;
+every original was matched to a copy by full content, not by name, and 29 TOTP
+secrets came across intact. One bug only that check could find: two items sharing
+a name in one trash, where a single copy satisfied both. Copies are now claimed
+one per original.

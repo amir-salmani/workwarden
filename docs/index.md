@@ -38,6 +38,10 @@ Read in order. Each one answers a question the next one assumes.
 - [PHASE0.md](PHASE0.md) — *How do we get real CPU numbers?* Not from inside the
   Worker: workerd freezes the clock during execution.
 
+[../compat/README.md](../compat/README.md) is the other half of the evidence:
+what driving a stock `bw` client at this server has actually proved, and the six
+protocol bugs it caught that no unit test reached.
+
 [generated/](generated/index.md) is regenerable from source and is not authored.
 
 Live at `vault.amirsalmani.com` since 2026-09-11. Feature parity with the

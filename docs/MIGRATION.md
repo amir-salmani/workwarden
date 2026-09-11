@@ -2,7 +2,7 @@
 type: Guide
 title: Moving a vault from Vaultwarden to workwarden
 description: The rehearsed procedure, and the parts only the vault's owner can do.
-status: open
+status: settled
 created: 2026-09-11
 timestamp: 2026-09-12
 tags: [workwarden, migration, vaultwarden]
@@ -13,8 +13,10 @@ related:
 
 # Moving a vault from Vaultwarden
 
-Nothing has been migrated yet. Both routes below were rehearsed end to end on
-2026-09-11 against real Bitwarden ciphertext.
+Both routes below were rehearsed end to end on 2026-09-11 against real Bitwarden
+ciphertext, and **Route B ran for real the same day**: 205 live items, 112
+trashed, 18 folders and 1 attachment now live at `vault.amirsalmani.com`, checked
+item by item by full content against the source vault.
 
 ## The one thing that does not transfer
 
@@ -122,6 +124,12 @@ Count items on both sides and open two or three by hand:
 bw list items | jq 'length'
 ```
 
-[FEASIBILITY.md §2.4](FEASIBILITY.md) still stands: the existing Vaultwarden
-remains the system of record until workwarden has earned the job over months.
-Migrating is a copy, not a cutover. Do not decommission anything.
+[FEASIBILITY.md §2.4](FEASIBILITY.md) said the existing Vaultwarden stays the
+system of record until workwarden has earned the job over months. **That was
+traded on 2026-09-11**, deliberately, for a verified restore path instead: a
+nightly encrypted export ([BACKUP.md](BACKUP.md)) and a Vaultwarden bundle in the
+backups repo that has been booted and checked, not merely written
+([STACK.md §6](STACK.md)).
+
+The old server was still running as of 2026-09-12. Decommission it after
+comparing the two vaults by hand, not before.
