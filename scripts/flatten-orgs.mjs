@@ -120,7 +120,18 @@ const folders = new Map(
     .map((f) => [f.name, f.id]),
 )
 
-const personal = [...items, ...trashed].filter((i) => !i.organizationId)
+// Copies already made, counted per name/folder/trash rather than looked up by
+// name alone. Two different items can share a name and a folder -- the real
+// vault had two "Direct Admin" entries in one trash -- and a lookup would let
+// the first copy stand in for both, leaving the second original uncopied and
+// then destroyed with the organization.
+const available = new Map()
+const slot = (name, folderId, inTrash) => JSON.stringify([name, folderId, Boolean(inTrash)])
+for (const p of [...items, ...trashed].filter((i) => !i.organizationId)) {
+  const k = slot(p.name, p.folderId, p.deletedDate)
+  if (!available.has(k)) available.set(k, [])
+  available.get(k).push(p)
+}
 let copied = 0
 let skipped = 0
 
@@ -133,11 +144,15 @@ for (const [name, group] of [...plan].sort()) {
   }
 
   for (const item of group) {
-    const existing = personal.find((p) => p.name === item.name && p.folderId === folderId)
-    if (existing) {
+    // Claim one existing copy per original, so a second same-named original
+    // still gets its own.
+    const claimed =
+      available.get(slot(item.name, folderId, item.fromTrash))?.shift() ??
       // An interrupted run can leave a trashed item's copy created but still
-      // live. Finish the job rather than skipping it half done.
-      if (item.fromTrash && !existing.deletedDate) bw(['delete', 'item', existing.id])
+      // live. Finish that one rather than making another.
+      (item.fromTrash ? available.get(slot(item.name, folderId, false))?.shift() : undefined)
+    if (claimed) {
+      if (item.fromTrash && !claimed.deletedDate) bw(['delete', 'item', claimed.id])
       skipped++
       continue
     }
