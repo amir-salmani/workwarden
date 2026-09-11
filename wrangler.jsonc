@@ -12,13 +12,11 @@
   // The zone is already on Cloudflare, so there is nothing to point at it.
   "routes": [{ "pattern": "vault.amirsalmani.com", "custom_domain": true }],
 
-  // workers.dev stays on because PR preview URLs are served from it. Turning it
-  // off to keep one public hostname silently broke every preview: the URLs 404
-  // even with preview_urls set, and nothing ran a preview to notice. The second
-  // hostname serves the same API behind the same authentication, so it was a
-  // tidiness preference, not a boundary.
-  "workers_dev": true,
-  "preview_urls": true,
+  // One public hostname. Preview URLs are no use here anyway: Cloudflare does
+  // not generate them for a Worker with a Durable Object, which this has for
+  // live sync. PRs deploy to the separate workwarden-preview Worker instead.
+  "workers_dev": false,
+  "preview_urls": false,
   // cpuTime is only readable from invocation logs -- workerd freezes clocks
   // inside the isolate, so Phase 0 cannot time itself. See docs/PHASE0.md.
   // Neon project flat-heart-18148850, branch production, eu-central-1.
@@ -48,7 +46,34 @@
   "observability": {
     "enabled": true,
     "logs": { "invocation_logs": true, "head_sampling_rate": 1 }
-  }
+  },
+
   // account_id is deliberately absent: this repo is public.
   // Set CLOUDFLARE_ACCOUNT_ID in the environment instead.
+
+  // PR previews. A separate Worker rather than a preview URL, because preview
+  // URLs are not generated for Workers with a Durable Object. Its own database
+  // (a fresh Neon branch per run), its own bucket, its own hub, and secrets
+  // generated per run -- nothing here can reach production or authenticate a
+  // production account.
+  "env": {
+    "preview": {
+      "name": "workwarden-preview",
+      "workers_dev": true,
+      "preview_urls": false,
+      "routes": [],
+      "hyperdrive": [
+        {
+          "binding": "HYPERDRIVE",
+          // Replaced per run with that PR's Hyperdrive config.
+          "id": "00000000000000000000000000000000",
+          "localConnectionString": "postgresql://postgres:dev@127.0.0.1:5432/workwarden"
+        }
+      ],
+      "r2_buckets": [{ "binding": "ATTACHMENTS", "bucket_name": "workwarden-attachments-preview" }],
+      "durable_objects": {
+        "bindings": [{ "name": "NOTIFICATIONS", "class_name": "NotificationHub" }]
+      }
+    }
+  }
 }

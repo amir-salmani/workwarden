@@ -1,6 +1,12 @@
-# Each pull request gets its own Neon branch and its own Hyperdrive config, so a
-# preview never touches production data. preview-cleanup.yml removes both when
-# the PR closes.
+# Each pull request gets its own Neon branch and its own Hyperdrive config, and
+# is deployed to the separate workwarden-preview Worker, so a preview never
+# touches production data. preview-cleanup.yml removes the branch and config
+# when the PR closes.
+#
+# A deploy rather than `versions upload`: Cloudflare does not generate preview
+# URLs for a Worker with a Durable Object, which this has for live sync. There is
+# one preview Worker, so two PRs previewing at once would overwrite each other;
+# for a single-maintainer repository that is an acceptable trade.
 name: preview
 
 on:
@@ -52,40 +58,50 @@ jobs:
         env:
           URI: ${{ steps.neon.outputs.uri }}
 
-      # The binding id is baked into wrangler.jsonc, so point this upload at the
-      # PR's config instead of production's.
-      - name: Point the binding at the PR config
+      # The preview environment carries a placeholder id; swap in this PR's
+      # config. Never the top-level id, which is production's.
+      - name: Point the preview binding at the PR config
         run: |
           node -e '
             const fs = require("node:fs")
             const f = "wrangler.jsonc"
             const s = fs.readFileSync(f, "utf8")
-            const next = s.replace(/"id": "[0-9a-f]{32}"/, `"id": "${process.env.HYPERDRIVE_ID}"`)
-            if (next === s) throw new Error("did not find the Hyperdrive id to replace")
-            fs.writeFileSync(f, next)
+            const placeholder = "00000000000000000000000000000000"
+            if (!s.includes(placeholder)) throw new Error("preview placeholder id not found")
+            fs.writeFileSync(f, s.replace(placeholder, process.env.HYPERDRIVE_ID))
           '
         env:
           HYPERDRIVE_ID: ${{ steps.hyperdrive.outputs.id }}
 
-      - name: Upload a preview version
-        id: upload
+      - name: Deploy the preview Worker
+        id: deploy
         uses: cloudflare/wrangler-action@ebbaa1584979971c8614a24965b4405ff95890e0 # v4.0.0
         with:
           apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
-          command: versions upload
+          command: deploy --env preview
+
+      # Throwaway secrets, generated here. The preview database is a copy of
+      # production, and a production pepper would let those copied accounts
+      # authenticate against the preview. With a fresh one nobody can.
+      - name: Preview secrets
+        run: |
+          jq -n --arg p "$(openssl rand -base64 32)" --arg j "$(openssl rand -base64 32)" \
+            '{AUTH_PEPPER: $p, JWT_SECRET: $j}' > "$RUNNER_TEMP/preview-secrets.json"
+          npx wrangler secret bulk "$RUNNER_TEMP/preview-secrets.json" --env preview
+          rm -f "$RUNNER_TEMP/preview-secrets.json"
 
       - name: Resolve the preview URL
         id: url
         run: |
-          url="${{ steps.upload.outputs.deployment-url }}"
+          url="${{ steps.deploy.outputs.deployment-url }}"
           if [ -z "$url" ]; then
-            url=$(printf '%s' "$OUTPUT" | grep -oE 'https://[a-z0-9-]+\.workers\.dev' | head -1)
+            url=$(printf '%s' "$OUTPUT" | grep -oE 'https://workwarden-preview\.[a-z0-9-]+\.workers\.dev' | head -1)
           fi
           [ -n "$url" ] || { echo "could not determine the preview URL"; exit 1; }
           echo "url=$url" >> "$GITHUB_OUTPUT"
         env:
-          OUTPUT: ${{ steps.upload.outputs.command-output }}
+          OUTPUT: ${{ steps.deploy.outputs.command-output }}
 
       - name: Smoke test the preview
         run: node scripts/smoke.mjs "${{ steps.url.outputs.url }}"
