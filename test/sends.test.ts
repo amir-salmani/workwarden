@@ -1,6 +1,6 @@
 import { SELF } from 'cloudflare:test'
 import { beforeEach, expect, it } from 'vitest'
-import { ALICE, authHeaders, ORIGIN, register, resetDatabase } from './support.ts'
+import { authHeaders, ORIGIN, register, resetDatabase } from './support.ts'
 
 let auth: Record<string, string>
 

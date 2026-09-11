@@ -13,7 +13,7 @@
 //
 //   AGE_RECIPIENT=age1... DATABASE_URL=postgres://... node scripts/export-vault.mjs out/
 import { execFileSync } from 'node:child_process'
-import { mkdirSync, writeFileSync } from 'node:fs'
+import { mkdirSync } from 'node:fs'
 import { join } from 'node:path'
 import postgres from 'postgres'
 

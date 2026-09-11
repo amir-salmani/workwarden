@@ -1,8 +1,7 @@
 import { SELF } from 'cloudflare:test'
 import { beforeEach, expect, it } from 'vitest'
-import { decode } from '../src/signalr/messagepack.ts'
 import { MessageType, RECORD_SEPARATOR, unframe } from '../src/signalr/protocol.ts'
-import { ALICE, authHeaders, ORIGIN, register, resetDatabase } from './support.ts'
+import { authHeaders, ORIGIN, register, resetDatabase } from './support.ts'
 
 const RS = String.fromCharCode(RECORD_SEPARATOR)
 let auth: Record<string, string>
