@@ -51,20 +51,14 @@ node scripts/import-vaultwarden.mjs /tmp/vaultwarden-backup.sqlite3
 ```
 
 It prints one token per vault. Redeem each once — the owner does this, because
-it needs the client-side hash of their master password:
+it needs their master password:
 
 ```sh
-node -e '
-  const { makeAccount } = await import("./compat/bitwarden-crypto.mjs")
-  const a = await makeAccount("you@example.com", "your master password")
-  const r = await fetch("https://vault.amirsalmani.com/api/accounts/claim", {
-    method: "POST", headers: { "content-type": "application/json" },
-    body: JSON.stringify({ email: "you@example.com", token: "<token>",
-                           masterPasswordHash: a.masterPasswordHash }),
-  })
-  console.log(r.status)
-'
+node scripts/claim.mjs you@example.com
 ```
+
+It prompts for the token and the password, derives the client-side hash locally,
+and sends only that. The password is never echoed, stored, or transmitted.
 
 Then log in normally. The master password is unchanged, because the vault key
 material came across with it.
