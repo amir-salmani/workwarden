@@ -24,9 +24,10 @@ version other than the ones tested here.
 server-side KDF cost, and how `/sync` is served.
 
 The short version: two mature projects already do "Vaultwarden on Workers."
-Neither implements organizations, collections, or sharing, and neither has a
-published threat model or a client-compatibility test suite. That gap is the
-project.
+Neither publishes a threat model or a client-compatibility test suite, and that
+gap is the project. Organizations were the third gap until this vault's were
+deliberately flattened into folders ([FLATTENING.md](docs/FLATTENING.md)) —
+one person does not need a second key hierarchy.
 
 ## Develop
 

@@ -4,7 +4,7 @@ title: workwarden feasibility
 description: Whether a Bitwarden-compatible server fits the Workers free tier, and whether the niche is already taken.
 status: settled
 created: 2026-08-30
-timestamp: 2026-08-30
+timestamp: 2026-09-12
 tags: [workwarden, cloudflare, workers, bitwarden]
 related:
   - STORAGE.md
@@ -287,6 +287,16 @@ Sequence, gated so each phase can kill the project cheaply:
   suite that runs in CI.
 - **Phase 3 — the rest.** 2FA, sends, attachments, emergency access, push.
 
+**All four shipped by 2026-09-12**, with one reversal: Phase 2's organizations
+were built, used to carry a real vault across, and then deleted on purpose —
+shared items became folders ([FLATTENING.md](FLATTENING.md)). Sharing is
+therefore *not* implemented and is not planned; it is the one differentiator in
+§2.2 that was traded away, for a single-user server that has one key hierarchy
+instead of two.
+
 Open decisions before Phase 0 is worth starting: the name (§1.5 — "workwarden"
 reads as *work*, not *worker*), the license (AGPLv3 to match Vaultwarden, or MIT
 to match warden-worker), and whether this is published publicly at all given §2.4.
+
+All three settled on 2026-09-10: the name kept, MIT, published
+([STACK.md §5](STACK.md)).

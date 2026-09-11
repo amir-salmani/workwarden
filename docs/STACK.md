@@ -4,7 +4,7 @@ title: workwarden tech stack
 description: What workwarden is built out of, and the four choices that were not obvious.
 status: active
 created: 2026-09-10
-timestamp: 2026-09-10
+timestamp: 2026-09-12
 tags: [workwarden, cloudflare, workers, stack]
 related:
   - FEASIBILITY.md
@@ -34,10 +34,10 @@ Phase 0 ratified the KDF choice on real workerd
 | DB access | Hyperdrive → [`postgres`](https://github.com/porsager/postgres.js) | wire protocol, not Neon's HTTP driver — §2.2 |
 | Schema | plain `.sql`, applied by [dbmate](https://github.com/amacneil/dbmate) | no ORM — §2.3 |
 | Crypto | WebCrypto (`crypto.subtle`) only | zero crypto dependencies |
-| Tokens | [`jose`](https://github.com/panva/jose) | signing algorithm is a Phase 0 finding |
+| Tokens | [`jose`](https://github.com/panva/jose) | HS256, 1 ms — [PHASE0.md](PHASE0.md) |
 | Blobs | R2 | attachments, Sends |
-| Realtime | Durable Object, SQLite backend | `/notifications/hub`, SignalR + MessagePack, Phase 3 |
-| Email | Cloudflare Email Sending | no SMTP path exists on Workers |
+| Realtime | Durable Object, SQLite backend | `/notifications/hub`, SignalR + MessagePack |
+| Email | **none** | no SMTP path on Workers, and nothing here needs one — §2.6 |
 | Validation | [zod](https://zod.dev) | request bodies come from clients we do not control |
 | Tests | [`@cloudflare/vitest-pool-workers`](https://developers.cloudflare.com/workers/testing/vitest-integration/) + `@bitwarden/cli` | runs in `workerd`, not Node — §2.4 |
 | Lint / format | [Biome](https://biomejs.dev) | one binary, replaces ESLint + Prettier |
@@ -108,8 +108,17 @@ so the cost is real but bounded. It also keeps the licensing clean — Vaultward
 [vw_web_builds](https://github.com/vaultwarden/vw_web_builds) is GPLv3, and
 keeping it out of the tree means there is no aggregation question to explain.
 
-Revisit after Phase 2. If it ships, it ships as a separate Worker in a separate
-repo, SRI-pinned, under its own license.
+If it ever ships, it ships as a separate Worker in a separate repo, SRI-pinned,
+under its own license.
+
+### 2.6 No email at all
+
+Workers have no SMTP path, and every Bitwarden feature that would need one is
+either unused here or works without it: there is one account, so no invitations
+and no verification; a forgotten master password is unrecoverable by design, so
+no reset mail. What it does cost is stated in the README — an emergency-access
+invite only reaches someone who already has an account on this server, and a
+grantor is not told when recovery starts.
 
 ---
 
@@ -117,14 +126,19 @@ repo, SRI-pinned, under its own license.
 
 GitHub Actions, three workflows:
 
-| Workflow | Trigger | Does | Phase 0 |
-|---|---|---|---|
-| `ci` | PR | Biome, `tsc --noEmit`, vitest-pool-workers, route-surface diff, prod-dep audit | all of it |
-| `ci` | PR | `dbmate up` against a Neon branch | Phase 1 |
-| `preview` | PR | `wrangler versions upload` | yes |
-| `preview` | PR | `bw` compat suite against the preview URL | Phase 1 — no client login exists yet |
-| `deploy` | push to default branch | `wrangler deploy` | yes |
-| `deploy` | push to default branch | `dbmate up` against production | Phase 1 |
+| Workflow | Trigger | Does |
+|---|---|---|
+| `ci` | PR, push to `master` | Biome, `tsc --noEmit`, vitest-pool-workers, route-surface diff, schema drift, prod-dep audit |
+| `preview` | PR opened/updated | `wrangler deploy` to a separate preview Worker, then the `bw` compat suite against it |
+| `preview-cleanup` | PR closed | deletes that PR's preview Worker and Neon branch |
+| `deploy` | `ci` completing green on `master` | `dbmate up` against production, then `wrangler deploy` |
+| `backup` | nightly 03:17 UTC | age-encrypted vault export to the backups repo |
+| `secrets` | manual | pushes Worker secrets from the local `.secrets` directory |
+
+`deploy` waits on a `workflow_run` of `ci` and checks out that run's SHA, so a
+red build cannot ship. Previews are a **separate Worker**, not a preview URL:
+Cloudflare does not generate preview URLs for a Worker that implements a Durable
+Object.
 
 Supply chain, which matters more here than in a normal repo: every action pinned
 to a full commit SHA, minimal `permissions:` per job, `npm ci` against a
@@ -169,19 +183,19 @@ before there is code to protect:
 - **Published publicly**, as open source.
 - **`vault.amirsalmani.com` is the product**, not a demo.
 
-## Part 6 — Still open
+## Part 6 — Closed, 2026-09-12
 
-- **Token signing algorithm.** Vaultwarden signs identity tokens RS256 with a
-  generated keypair. Whether stock clients verify the signature or treat the
-  token as opaque decides whether HS256 is available, which is cheaper per login.
-  Deferred to Phase 1 — it needs a client that can complete a login.
-  HS256 costs 1 ms ([PHASE0.md](PHASE0.md)); RS256 is untested. `[unverified]`
-- **DO CPU budget on the free plan.** Carried unresolved from
-  [FEASIBILITY.md §1.1](FEASIBILITY.md); Phase 0 did not touch it, since there is
-  no Durable Object yet. `[unverified]`
-- **Export destination.** [FEASIBILITY.md §2.4](FEASIBILITY.md) requires
-  automated encrypted Bitwarden-JSON export outside Cloudflare from day one.
-  *Where* is undecided.
+- **Token signing algorithm: HS256.** Stock clients treat the identity token as
+  opaque — desktop, browser extension and CLI all log in, sync and edit against
+  HS256 tokens in production. `[confirmed]`
+- **DO CPU budget on the free plan.** Two Durable Object classes run there
+  (`NotificationHub`, `Throttle`) and the free plan admits them. Per-request DO
+  CPU is still unmeasured; nothing observed has come near the budget, which is
+  weaker evidence than a number. `[reported]`
+- **Export destination: a private GitHub repository**, age-encrypted, tracked
+  here as the `backups/` submodule and written nightly by the `backup` workflow
+  ([BACKUP.md](BACKUP.md)). CI holds the age *recipient* only, so the pipeline
+  that writes the backups cannot read them. `[confirmed]`
 
 ### A conflict worth naming
 
@@ -189,5 +203,10 @@ before there is code to protect:
 [FEASIBILITY.md §2.4](FEASIBILITY.md)'s "the existing Vaultwarden instance stays
 the system of record until workwarden has proven itself over months" are not the
 same date. Pointing the domain at workwarden early is fine. A real vault living there is
-not, until the off-Cloudflare export exists — which moves that export from
-Phase 2 into Phase 1.
+not, until the off-Cloudflare export exists.
+
+**Resolved 2026-09-12 by moving the export first.** The vault was cut over on
+2026-09-11 with the nightly encrypted export already running and a verified,
+bootable Vaultwarden restore bundle in the backups repo — so "proven over months"
+was traded for "restorable in an hour", deliberately, and the old instance was
+kept running through the comparison rather than trusted to memory.

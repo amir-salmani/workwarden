@@ -4,7 +4,7 @@ title: Moving a vault from Vaultwarden to workwarden
 description: The rehearsed procedure, and the parts only the vault's owner can do.
 status: open
 created: 2026-09-11
-timestamp: 2026-09-11
+timestamp: 2026-09-12
 tags: [workwarden, migration, vaultwarden]
 related:
   - BACKUP.md
@@ -63,8 +63,10 @@ and sends only that. The password is never echoed, stored, or transmitted.
 Then log in normally. The master password is unchanged, because the vault key
 material came across with it.
 
-Organization ciphers are **skipped, not flattened** into a personal vault —
-that would change who can see them. Organizations are Phase 2.
+Organization ciphers are **counted and skipped**. They are encrypted under the
+organization's key, which the importer never holds, so no server-side process can
+move them into this model — that takes a logged-in client
+([FLATTENING.md](FLATTENING.md)). Flatten first, import second.
 
 ---
 
@@ -106,8 +108,8 @@ the same master password keeps working and nothing is re-encrypted.
 
 | | |
 |---|---|
-| carried | login items, secure notes, cards, identities, folders, favourites |
-| not carried | organizations and collections (not implemented — Phase 2), attachments (Phase 3), 2FA settings, sends, emergency access, password history |
+| carried | login items, secure notes, cards, identities, folders, favourites, password history, attachment records (blobs upload separately) |
+| not carried | organization ciphers (flatten them from a client first), 2FA settings, Sends, emergency access |
 
 Items are **re-encrypted under the new account's key** on import, so the two
 vaults share no key material afterwards.
