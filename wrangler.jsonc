@@ -12,10 +12,12 @@
   // The zone is already on Cloudflare, so there is nothing to point at it.
   "routes": [{ "pattern": "vault.amirsalmani.com", "custom_domain": true }],
 
-  // One public hostname for production: a vault does not need a second front
-  // door on workers.dev. Preview URLs still live there, so they are re-enabled
-  // explicitly -- adding "routes" turns both off by default.
-  "workers_dev": false,
+  // workers.dev stays on because PR preview URLs are served from it. Turning it
+  // off to keep one public hostname silently broke every preview: the URLs 404
+  // even with preview_urls set, and nothing ran a preview to notice. The second
+  // hostname serves the same API behind the same authentication, so it was a
+  // tidiness preference, not a boundary.
+  "workers_dev": true,
   "preview_urls": true,
   // cpuTime is only readable from invocation logs -- workerd freezes clocks
   // inside the isolate, so Phase 0 cannot time itself. See docs/PHASE0.md.
