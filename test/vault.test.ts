@@ -149,3 +149,32 @@ it('will not touch another user’s cipher', async () => {
   const res = await SELF.fetch(`${ORIGIN}/api/ciphers/${id}`, { headers: bobAuth })
   expect(res.status).toBe(404)
 })
+
+it('bulk-imports ciphers and folders, wiring up the relationships', async () => {
+  const res = await api('/api/ciphers/import', {
+    method: 'POST',
+    body: JSON.stringify({
+      folders: [{ name: '2.imported-folder' }],
+      ciphers: [
+        { type: 1, name: '2.in-folder', login: { username: '2.u' } },
+        { type: 2, name: '2.loose', notes: '2.n' },
+      ],
+      folderRelationships: [{ key: 0, value: 0 }],
+    }),
+  })
+  expect(res.status).toBe(200)
+
+  const body = await getSync()
+  expect(body.folders).toHaveLength(1)
+  expect(body.ciphers).toHaveLength(2)
+
+  const filed = body.ciphers.find((c) => c.name === '2.in-folder')
+  const loose = body.ciphers.find((c) => c.name === '2.loose')
+  expect(filed?.folderId).toBe(body.folders[0]?.id)
+  expect(loose?.folderId).toBeNull()
+})
+
+it('does not mistake /import for a cipher id', async () => {
+  const res = await api('/api/ciphers/import', { method: 'POST', body: JSON.stringify({}) })
+  expect(res.status).toBe(200)
+})

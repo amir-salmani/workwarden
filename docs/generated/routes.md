@@ -9,7 +9,7 @@ status: active
 
 # Route surface
 
-25 routes.
+26 routes.
 
 | Method | Path |
 |---|---|
@@ -29,6 +29,7 @@ status: active
 | POST | `/api/ciphers/:id` |
 | POST | `/api/ciphers/:id/delete` |
 | POST | `/api/ciphers/:id/restore` |
+| POST | `/api/ciphers/import` |
 | POST | `/api/folders` |
 | POST | `/api/folders/:id` |
 | POST | `/identity/accounts/prelogin` |

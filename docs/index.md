@@ -22,6 +22,9 @@ Read in order. Each one answers a question the next one assumes.
 - [BACKUP.md](BACKUP.md) — *What happens when Cloudflare or Neon vanishes?* An
   age-encrypted Bitwarden-format export, restorable, and tested by destroying a
   vault on every pull request.
+- [MIGRATION.md](MIGRATION.md) — *How does an existing Vaultwarden vault get
+  here?* Through a client, never the database — the password hashes are not
+  convertible.
 - [PHASE0.md](PHASE0.md) — *How do we get real CPU numbers?* Not from inside the
   Worker: workerd freezes the clock during execution.
 
