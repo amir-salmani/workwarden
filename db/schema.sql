@@ -65,7 +65,7 @@ SET default_table_access_method = heap;
 
 CREATE TABLE public.ciphers (
     id uuid DEFAULT gen_random_uuid() NOT NULL,
-    user_id uuid,
+    user_id uuid NOT NULL,
     folder_id uuid,
     type smallint NOT NULL,
     data jsonb NOT NULL,
@@ -73,9 +73,7 @@ CREATE TABLE public.ciphers (
     reprompt smallint DEFAULT 0 NOT NULL,
     created_at timestamp with time zone DEFAULT now() NOT NULL,
     revision_date timestamp with time zone DEFAULT now() NOT NULL,
-    deleted_at timestamp with time zone,
-    organization_id uuid,
-    CONSTRAINT ciphers_owned_by_user_xor_org CHECK ((num_nonnulls(user_id, organization_id) = 1))
+    deleted_at timestamp with time zone
 );
 
 
@@ -88,7 +86,7 @@ CREATE FUNCTION public.cipher_json(c public.ciphers, base_url text) RETURNS json
     AS $$
   select c.data || jsonb_build_object(
     'id',             c.id,
-    'organizationId', c.organization_id,
+    'organizationId', null,
     'folderId',       c.folder_id,
     'type',           c.type,
     'favorite',       c.favorite,
@@ -96,9 +94,7 @@ CREATE FUNCTION public.cipher_json(c public.ciphers, base_url text) RETURNS json
     'edit',           true,
     'viewPassword',   true,
     'permissions',    jsonb_build_object('delete', true, 'restore', true),
-    'collectionIds',  coalesce(
-      (select jsonb_agg(cc.collection_id) from collection_ciphers cc where cc.cipher_id = c.id),
-      '[]'::jsonb),
+    'collectionIds',  '[]'::jsonb,
     'attachments',    (
       select jsonb_agg(jsonb_build_object(
         'id',       a.id,
@@ -111,7 +107,7 @@ CREATE FUNCTION public.cipher_json(c public.ciphers, base_url text) RETURNS json
       ) order by a.id)
       from attachments a where a.cipher_id = c.id
     ),
-    'organizationUseTotp', true,
+    'organizationUseTotp', false,
     'key',            coalesce(c.data -> 'key', 'null'::jsonb),
     'creationDate',   bw_timestamp(c.created_at),
     'revisionDate',   bw_timestamp(c.revision_date),
@@ -156,59 +152,10 @@ CREATE TABLE public.attachments (
 CREATE VIEW public.cipher_details AS
  SELECT id,
     user_id,
-    organization_id,
     folder_id,
     deleted_at,
     public.cipher_json(c.*, ''::text) AS "json"
    FROM public.ciphers c;
-
-
---
--- Name: collection_ciphers; Type: TABLE; Schema: public; Owner: -
---
-
-CREATE TABLE public.collection_ciphers (
-    collection_id uuid NOT NULL,
-    cipher_id uuid NOT NULL
-);
-
-
---
--- Name: collections; Type: TABLE; Schema: public; Owner: -
---
-
-CREATE TABLE public.collections (
-    id uuid DEFAULT gen_random_uuid() NOT NULL,
-    organization_id uuid NOT NULL,
-    name text NOT NULL,
-    external_id text,
-    created_at timestamp with time zone DEFAULT now() NOT NULL,
-    revision_date timestamp with time zone DEFAULT now() NOT NULL
-);
-
-
---
--- Name: collection_details; Type: VIEW; Schema: public; Owner: -
---
-
-CREATE VIEW public.collection_details AS
- SELECT id,
-    organization_id,
-    jsonb_build_object('id', id, 'organizationId', organization_id, 'name', name, 'externalId', external_id, 'readOnly', false, 'hidePasswords', false, 'manage', true, 'object', 'collectionDetails') AS "json"
-   FROM public.collections cl;
-
-
---
--- Name: collection_users; Type: TABLE; Schema: public; Owner: -
---
-
-CREATE TABLE public.collection_users (
-    collection_id uuid NOT NULL,
-    user_id uuid NOT NULL,
-    read_only boolean DEFAULT false NOT NULL,
-    hide_passwords boolean DEFAULT false NOT NULL,
-    manage boolean DEFAULT false NOT NULL
-);
 
 
 --
@@ -250,50 +197,6 @@ CREATE VIEW public.folder_details AS
     user_id,
     jsonb_build_object('id', id, 'name', name, 'revisionDate', public.bw_timestamp(revision_date), 'object', 'folder') AS "json"
    FROM public.folders f;
-
-
---
--- Name: organization_users; Type: TABLE; Schema: public; Owner: -
---
-
-CREATE TABLE public.organization_users (
-    id uuid DEFAULT gen_random_uuid() NOT NULL,
-    organization_id uuid NOT NULL,
-    user_id uuid NOT NULL,
-    akey text,
-    status smallint DEFAULT 2 NOT NULL,
-    type smallint DEFAULT 2 NOT NULL,
-    access_all boolean DEFAULT false NOT NULL,
-    created_at timestamp with time zone DEFAULT now() NOT NULL,
-    revision_date timestamp with time zone DEFAULT now() NOT NULL
-);
-
-
---
--- Name: organizations; Type: TABLE; Schema: public; Owner: -
---
-
-CREATE TABLE public.organizations (
-    id uuid DEFAULT gen_random_uuid() NOT NULL,
-    name text NOT NULL,
-    billing_email text,
-    private_key text,
-    public_key text,
-    created_at timestamp with time zone DEFAULT now() NOT NULL,
-    revision_date timestamp with time zone DEFAULT now() NOT NULL
-);
-
-
---
--- Name: profile_organizations; Type: VIEW; Schema: public; Owner: -
---
-
-CREATE VIEW public.profile_organizations AS
- SELECT ou.user_id,
-    ou.organization_id,
-    jsonb_build_object('id', o.id, 'name', o.name, 'key', ou.akey, 'status', ou.status, 'type', ou.type, 'enabled', true, 'seats', NULL::unknown, 'maxCollections', NULL::unknown, 'maxStorageGb', NULL::unknown, 'identifier', NULL::unknown, 'permissions', jsonb_build_object(), 'useGroups', false, 'useDirectory', false, 'useEvents', false, 'useTotp', true, 'usePolicies', false, 'useSso', false, 'useApi', false, 'useResetPassword', false, 'useSecretsManager', false, 'usePasswordManager', true, 'useCustomPermissions', false, 'useActivateAutofillPolicy', false, 'selfHost', true, 'usersGetPremium', true, 'familySponsorshipFriendlyName', NULL::unknown, 'familySponsorshipAvailable', false, 'familySponsorshipLastSyncDate', NULL::unknown, 'familySponsorshipToDelete', NULL::unknown, 'familySponsorshipValidUntil', NULL::unknown, 'providerId', NULL::unknown, 'providerName', NULL::unknown, 'providerType', NULL::unknown, 'accessSecretsManager', false, 'limitCollectionCreationDeletion', false, 'allowAdminAccessToAllCollectionItems', true, 'resetPasswordEnrolled', false, 'userIsManagedByOrganization', false, 'userId', ou.user_id, 'organizationUserId', ou.id, 'hasPublicAndPrivateKeys', ((o.public_key IS NOT NULL) AND (o.private_key IS NOT NULL)), 'object', 'profileOrganization') AS "json"
-   FROM (public.organization_users ou
-     JOIN public.organizations o ON ((o.id = ou.organization_id)));
 
 
 --
@@ -387,63 +290,12 @@ CREATE TABLE public.users (
 CREATE VIEW public.vault_export AS
  SELECT id AS user_id,
     email,
-    jsonb_build_object('encrypted', true, 'workwarden', jsonb_build_object('formatVersion', 1, 'exportedAt', public.bw_timestamp(now()), 'account', jsonb_build_object('id', id, 'email', email, 'name', name, 'passwordHash', password_hash, 'salt', salt, 'passwordHint', password_hint, 'kdfType', kdf_type, 'kdfIterations', kdf_iterations, 'kdfMemory', kdf_memory, 'kdfParallelism', kdf_parallelism, 'key', akey, 'privateKey', private_key, 'publicKey', public_key), 'organizations', COALESCE(( SELECT jsonb_agg(jsonb_build_object('id', o.id, 'name', o.name, 'key', ou.akey, 'status', ou.status, 'type', ou.type, 'accessAll', ou.access_all, 'privateKey', o.private_key, 'publicKey', o.public_key, 'collections', COALESCE(( SELECT jsonb_agg(jsonb_build_object('id', cl.id, 'name', cl.name)) AS jsonb_agg
-                   FROM public.collections cl
-                  WHERE (cl.organization_id = o.id)), '[]'::jsonb))) AS jsonb_agg
-           FROM (public.organization_users ou
-             JOIN public.organizations o ON ((o.id = ou.organization_id)))
-          WHERE (ou.user_id = u.id)), '[]'::jsonb), 'sharedItems', COALESCE(( SELECT jsonb_agg((public.cipher_json(c.*, ''::text) || jsonb_build_object('collectionIds', ( SELECT jsonb_agg(cc.collection_id) AS jsonb_agg
-                   FROM public.collection_ciphers cc
-                  WHERE (cc.cipher_id = c.id))))) AS jsonb_agg
-           FROM public.ciphers c
-          WHERE (c.organization_id IN ( SELECT organization_users.organization_id
-                   FROM public.organization_users
-                  WHERE (organization_users.user_id = u.id)))), '[]'::jsonb)), 'folders', COALESCE(( SELECT jsonb_agg(jsonb_build_object('id', f.id, 'name', f.name)) AS jsonb_agg
+    jsonb_build_object('encrypted', true, 'workwarden', jsonb_build_object('formatVersion', 2, 'exportedAt', public.bw_timestamp(now()), 'account', jsonb_build_object('id', id, 'email', email, 'name', name, 'passwordHash', password_hash, 'salt', salt, 'passwordHint', password_hint, 'kdfType', kdf_type, 'kdfIterations', kdf_iterations, 'kdfMemory', kdf_memory, 'kdfParallelism', kdf_parallelism, 'key', akey, 'privateKey', private_key, 'publicKey', public_key)), 'folders', COALESCE(( SELECT jsonb_agg(jsonb_build_object('id', f.id, 'name', f.name)) AS jsonb_agg
            FROM public.folders f
           WHERE (f.user_id = u.id)), '[]'::jsonb), 'items', COALESCE(( SELECT jsonb_agg(((((((c."json" - 'edit'::text) - 'viewPassword'::text) - 'object'::text) - 'organizationUseTotp'::text) - 'collectionIds'::text) || jsonb_build_object('collectionIds', NULL::unknown))) AS jsonb_agg
            FROM public.cipher_details c
           WHERE (c.user_id = u.id)), '[]'::jsonb)) AS export
    FROM public.users u;
-
-
---
--- Name: visible_ciphers; Type: VIEW; Schema: public; Owner: -
---
-
-CREATE VIEW public.visible_ciphers AS
- SELECT c.id AS cipher_id,
-    u.id AS user_id
-   FROM (public.ciphers c
-     JOIN public.users u ON ((u.id = c.user_id)))
-UNION
- SELECT c.id AS cipher_id,
-    ou.user_id
-   FROM (public.ciphers c
-     JOIN public.organization_users ou ON (((ou.organization_id = c.organization_id) AND (ou.status = 2))))
-  WHERE ((ou.type = ANY (ARRAY[0, 1])) OR ou.access_all)
-UNION
- SELECT c.id AS cipher_id,
-    cu.user_id
-   FROM (((public.ciphers c
-     JOIN public.collection_ciphers cc ON ((cc.cipher_id = c.id)))
-     JOIN public.collection_users cu ON ((cu.collection_id = cc.collection_id)))
-     JOIN public.organization_users ou ON (((ou.organization_id = c.organization_id) AND (ou.user_id = cu.user_id) AND (ou.status = 2))));
-
-
---
--- Name: visible_collections; Type: VIEW; Schema: public; Owner: -
---
-
-CREATE VIEW public.visible_collections AS
- SELECT cl.id AS collection_id,
-    ou.user_id
-   FROM (public.collections cl
-     JOIN public.organization_users ou ON (((ou.organization_id = cl.organization_id) AND (ou.status = 2))))
-  WHERE ((ou.type = ANY (ARRAY[0, 1])) OR ou.access_all)
-UNION
- SELECT cu.collection_id,
-    cu.user_id
-   FROM public.collection_users cu;
 
 
 --
@@ -460,30 +312,6 @@ ALTER TABLE ONLY public.attachments
 
 ALTER TABLE ONLY public.ciphers
     ADD CONSTRAINT ciphers_pkey PRIMARY KEY (id);
-
-
---
--- Name: collection_ciphers collection_ciphers_pkey; Type: CONSTRAINT; Schema: public; Owner: -
---
-
-ALTER TABLE ONLY public.collection_ciphers
-    ADD CONSTRAINT collection_ciphers_pkey PRIMARY KEY (collection_id, cipher_id);
-
-
---
--- Name: collection_users collection_users_pkey; Type: CONSTRAINT; Schema: public; Owner: -
---
-
-ALTER TABLE ONLY public.collection_users
-    ADD CONSTRAINT collection_users_pkey PRIMARY KEY (collection_id, user_id);
-
-
---
--- Name: collections collections_pkey; Type: CONSTRAINT; Schema: public; Owner: -
---
-
-ALTER TABLE ONLY public.collections
-    ADD CONSTRAINT collections_pkey PRIMARY KEY (id);
 
 
 --
@@ -508,30 +336,6 @@ ALTER TABLE ONLY public.devices
 
 ALTER TABLE ONLY public.folders
     ADD CONSTRAINT folders_pkey PRIMARY KEY (id);
-
-
---
--- Name: organization_users organization_users_organization_id_user_id_key; Type: CONSTRAINT; Schema: public; Owner: -
---
-
-ALTER TABLE ONLY public.organization_users
-    ADD CONSTRAINT organization_users_organization_id_user_id_key UNIQUE (organization_id, user_id);
-
-
---
--- Name: organization_users organization_users_pkey; Type: CONSTRAINT; Schema: public; Owner: -
---
-
-ALTER TABLE ONLY public.organization_users
-    ADD CONSTRAINT organization_users_pkey PRIMARY KEY (id);
-
-
---
--- Name: organizations organizations_pkey; Type: CONSTRAINT; Schema: public; Owner: -
---
-
-ALTER TABLE ONLY public.organizations
-    ADD CONSTRAINT organizations_pkey PRIMARY KEY (id);
 
 
 --
@@ -582,31 +386,10 @@ CREATE INDEX attachments_cipher_id_idx ON public.attachments USING btree (cipher
 
 
 --
--- Name: ciphers_organization_id_idx; Type: INDEX; Schema: public; Owner: -
---
-
-CREATE INDEX ciphers_organization_id_idx ON public.ciphers USING btree (organization_id);
-
-
---
 -- Name: ciphers_user_id_idx; Type: INDEX; Schema: public; Owner: -
 --
 
 CREATE INDEX ciphers_user_id_idx ON public.ciphers USING btree (user_id);
-
-
---
--- Name: collection_ciphers_cipher_id_idx; Type: INDEX; Schema: public; Owner: -
---
-
-CREATE INDEX collection_ciphers_cipher_id_idx ON public.collection_ciphers USING btree (cipher_id);
-
-
---
--- Name: collections_organization_id_idx; Type: INDEX; Schema: public; Owner: -
---
-
-CREATE INDEX collections_organization_id_idx ON public.collections USING btree (organization_id);
 
 
 --
@@ -621,13 +404,6 @@ CREATE INDEX devices_user_id_idx ON public.devices USING btree (user_id);
 --
 
 CREATE INDEX folders_user_id_idx ON public.folders USING btree (user_id);
-
-
---
--- Name: organization_users_user_id_idx; Type: INDEX; Schema: public; Owner: -
---
-
-CREATE INDEX organization_users_user_id_idx ON public.organization_users USING btree (user_id);
 
 
 --
@@ -654,59 +430,11 @@ ALTER TABLE ONLY public.ciphers
 
 
 --
--- Name: ciphers ciphers_organization_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
---
-
-ALTER TABLE ONLY public.ciphers
-    ADD CONSTRAINT ciphers_organization_id_fkey FOREIGN KEY (organization_id) REFERENCES public.organizations(id) ON DELETE CASCADE;
-
-
---
 -- Name: ciphers ciphers_user_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
 --
 
 ALTER TABLE ONLY public.ciphers
     ADD CONSTRAINT ciphers_user_id_fkey FOREIGN KEY (user_id) REFERENCES public.users(id) ON DELETE CASCADE;
-
-
---
--- Name: collection_ciphers collection_ciphers_cipher_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
---
-
-ALTER TABLE ONLY public.collection_ciphers
-    ADD CONSTRAINT collection_ciphers_cipher_id_fkey FOREIGN KEY (cipher_id) REFERENCES public.ciphers(id) ON DELETE CASCADE;
-
-
---
--- Name: collection_ciphers collection_ciphers_collection_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
---
-
-ALTER TABLE ONLY public.collection_ciphers
-    ADD CONSTRAINT collection_ciphers_collection_id_fkey FOREIGN KEY (collection_id) REFERENCES public.collections(id) ON DELETE CASCADE;
-
-
---
--- Name: collection_users collection_users_collection_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
---
-
-ALTER TABLE ONLY public.collection_users
-    ADD CONSTRAINT collection_users_collection_id_fkey FOREIGN KEY (collection_id) REFERENCES public.collections(id) ON DELETE CASCADE;
-
-
---
--- Name: collection_users collection_users_user_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
---
-
-ALTER TABLE ONLY public.collection_users
-    ADD CONSTRAINT collection_users_user_id_fkey FOREIGN KEY (user_id) REFERENCES public.users(id) ON DELETE CASCADE;
-
-
---
--- Name: collections collections_organization_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
---
-
-ALTER TABLE ONLY public.collections
-    ADD CONSTRAINT collections_organization_id_fkey FOREIGN KEY (organization_id) REFERENCES public.organizations(id) ON DELETE CASCADE;
 
 
 --
@@ -723,22 +451,6 @@ ALTER TABLE ONLY public.devices
 
 ALTER TABLE ONLY public.folders
     ADD CONSTRAINT folders_user_id_fkey FOREIGN KEY (user_id) REFERENCES public.users(id) ON DELETE CASCADE;
-
-
---
--- Name: organization_users organization_users_organization_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
---
-
-ALTER TABLE ONLY public.organization_users
-    ADD CONSTRAINT organization_users_organization_id_fkey FOREIGN KEY (organization_id) REFERENCES public.organizations(id) ON DELETE CASCADE;
-
-
---
--- Name: organization_users organization_users_user_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
---
-
-ALTER TABLE ONLY public.organization_users
-    ADD CONSTRAINT organization_users_user_id_fkey FOREIGN KEY (user_id) REFERENCES public.users(id) ON DELETE CASCADE;
 
 
 --
