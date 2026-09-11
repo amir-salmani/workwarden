@@ -1,8 +1,10 @@
 import { Hono } from 'hono'
+import type { JSONValue } from 'postgres'
 import { z } from 'zod'
 import type { App } from '../app.ts'
 import { constantTimeEquals, deriveAuthHash, randomSalt } from '../auth/kdf.ts'
 import { requireUser } from '../auth/session.ts'
+import type { Sql } from '../db.ts'
 import { apiError, insensitive } from '../http.ts'
 import { DEFAULT_KDF, findByEmail, type User } from '../users.ts'
 import { prelogin } from './prelogin.ts'
@@ -94,13 +96,22 @@ accounts.post('/claim', async (c) => {
   return c.body(null, 200)
 })
 
-accounts.get('/profile', requireUser(), (c) => c.json(profile(c.get('user'))))
+accounts.get('/profile', requireUser(), async (c) =>
+  c.json(profile(c.get('user'), await organizationsFor(c.get('sql'), c.get('user').id))),
+)
 
 accounts.get('/revision-date', requireUser(), (c) =>
   c.body(String(c.get('user').revision_date.getTime())),
 )
 
-export function profile(user: User) {
+/** The organizations a user belongs to, in the shape the profile carries. */
+export async function organizationsFor(sql: Sql, userId: string): Promise<JSONValue[]> {
+  const rows = await sql<{ json: JSONValue }[]>`
+    select json from profile_organizations where user_id = ${userId} order by json->>'name'`
+  return rows.map((r) => r.json)
+}
+
+export function profile(user: User, organizations: JSONValue[] = []) {
   return {
     id: user.id,
     name: user.name,
@@ -118,7 +129,7 @@ export function profile(user: User) {
     usesKeyConnector: false,
     avatarColor: null,
     creationDate: user.created_at.toISOString(),
-    organizations: [],
+    organizations,
     providers: [],
     providerOrganizations: [],
     object: 'profile',

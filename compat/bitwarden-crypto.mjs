@@ -85,3 +85,32 @@ export async function makeAccount(email, password, iterations = 600_000) {
     keys: { publicKey: b64(spki), encryptedPrivateKey },
   }
 }
+
+/**
+ * Encrypt with a 64-byte Bitwarden symmetric key (32 bytes AES + 32 bytes MAC).
+ * Used to build organization-owned ciphers in tests.
+ */
+export async function encryptWithKey(plaintext, key64) {
+  return encrypt(utf8.encode(plaintext), key64.slice(0, 32), key64.slice(32))
+}
+
+/**
+ * Wrap an organization's symmetric key for one member, the way Bitwarden does:
+ * RSA-OAEP-SHA1 under that member's public key, EncString type 4. The server
+ * stores this and can never open it.
+ */
+export async function wrapKeyForUser(key64, publicKeySpkiB64) {
+  const pub = await crypto.subtle.importKey(
+    'spki',
+    Buffer.from(publicKeySpkiB64, 'base64'),
+    { name: 'RSA-OAEP', hash: 'SHA-1' },
+    false,
+    ['encrypt'],
+  )
+  const wrapped = await crypto.subtle.encrypt({ name: 'RSA-OAEP' }, pub, key64)
+  return `4.${b64(wrapped)}`
+}
+
+export function randomSymmetricKey() {
+  return crypto.getRandomValues(new Uint8Array(64))
+}
