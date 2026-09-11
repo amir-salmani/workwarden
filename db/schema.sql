@@ -95,6 +95,7 @@ CREATE FUNCTION public.cipher_json(c public.ciphers, base_url text) RETURNS json
     'reprompt',       c.reprompt,
     'edit',           true,
     'viewPassword',   true,
+    'permissions',    jsonb_build_object('delete', true, 'restore', true),
     'collectionIds',  coalesce(
       (select jsonb_agg(cc.collection_id) from collection_ciphers cc where cc.cipher_id = c.id),
       '[]'::jsonb),

@@ -368,3 +368,18 @@ it('will not let a stranger attach a file to someone else’s cipher', async () 
   })
   expect(res.status).toBe(404)
 })
+
+it('tells the client it may delete and restore its own items', async () => {
+  // Clients default both to false when this object is missing, and then refuse
+  // Delete and Restore on every item despite the server allowing them.
+  const created = await api('/api/ciphers', {
+    method: 'POST',
+    body: JSON.stringify({ type: 1, name: '2.deletable', login: { username: '2.u' } }),
+  })
+  const cipher = (await created.json()) as { permissions: { delete: boolean; restore: boolean } }
+  expect(cipher.permissions).toEqual({ delete: true, restore: true })
+
+  const synced = await getSync()
+  const fromSync = synced.ciphers[0] as unknown as { permissions: unknown }
+  expect(fromSync.permissions).toEqual({ delete: true, restore: true })
+})
