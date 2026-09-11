@@ -84,3 +84,76 @@ it('will not touch another user’s send', async () => {
   const res = await SELF.fetch(`${ORIGIN}/api/sends/${id}`, { headers: bobAuth })
   expect(res.status).toBe(404)
 })
+
+const accessIdOf = (id: string) => id.replaceAll('-', '')
+
+it('serves a send to someone with only the link, and counts the access', async () => {
+  const created = await api('/api/sends', { method: 'POST', body: JSON.stringify(aSend) })
+  const { id } = (await created.json()) as { id: string }
+
+  // No auth header: a recipient has a link, not an account.
+  const res = await SELF.fetch(`${ORIGIN}/api/sends/access/${accessIdOf(id)}`, { method: 'POST' })
+  expect(res.status).toBe(200)
+  const body = (await res.json()) as { key: string; text: unknown; password?: string }
+  expect(body.key).toBe('2.send-key')
+  expect(body.text).not.toBeNull()
+  expect(body.password).toBeUndefined()
+
+  const mine = (await (await api(`/api/sends/${id}`)).json()) as { accessCount: number }
+  expect(mine.accessCount).toBe(1)
+})
+
+it('refuses a password-protected send without the password, without burning an access', async () => {
+  const created = await api('/api/sends', {
+    method: 'POST',
+    body: JSON.stringify({ ...aSend, password: 'hashed-access-password' }),
+  })
+  const { id } = (await created.json()) as { id: string }
+  const url = `${ORIGIN}/api/sends/access/${accessIdOf(id)}`
+
+  const refused = await SELF.fetch(url, {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify({ password: 'wrong' }),
+  })
+  expect(refused.status).toBe(401)
+  expect(
+    ((await (await api(`/api/sends/${id}`)).json()) as { accessCount: number }).accessCount,
+  ).toBe(0)
+
+  const allowed = await SELF.fetch(url, {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify({ password: 'hashed-access-password' }),
+  })
+  expect(allowed.status).toBe(200)
+})
+
+it('stops serving a send once its access limit is reached', async () => {
+  const created = await api('/api/sends', {
+    method: 'POST',
+    body: JSON.stringify({ ...aSend, maxAccessCount: 1 }),
+  })
+  const { id } = (await created.json()) as { id: string }
+  const url = `${ORIGIN}/api/sends/access/${accessIdOf(id)}`
+
+  expect((await SELF.fetch(url, { method: 'POST' })).status).toBe(200)
+  expect((await SELF.fetch(url, { method: 'POST' })).status).toBe(404)
+})
+
+it('does not distinguish a disabled send from one that never existed', async () => {
+  const created = await api('/api/sends', {
+    method: 'POST',
+    body: JSON.stringify({ ...aSend, disabled: true }),
+  })
+  const { id } = (await created.json()) as { id: string }
+
+  const disabled = await SELF.fetch(`${ORIGIN}/api/sends/access/${accessIdOf(id)}`, {
+    method: 'POST',
+  })
+  const missing = await SELF.fetch(`${ORIGIN}/api/sends/access/${'0'.repeat(32)}`, {
+    method: 'POST',
+  })
+  expect(disabled.status).toBe(missing.status)
+  expect(await disabled.text()).toBe(await missing.text())
+})

@@ -75,13 +75,19 @@ accounts.post('/claim', async (c) => {
   if (!parsed.success) return apiError(c, 'Claim is missing required fields')
 
   const sql = c.get('sql')
+  // One message for every rejection, so this cannot be used to discover which
+  // accounts exist. The hint is safe: anyone holding a token already knows the
+  // address, and "already claimed" was the confusing case in practice.
+  const refuse = () =>
+    apiError(
+      c,
+      'That account is not awaiting a claim. It may already have been claimed, ' +
+        'in which case simply log in -- a claim token works once.',
+    )
+
   const user = await findByEmail(sql, parsed.data.email)
-  if (!user?.claim_token || user.password_hash !== null) {
-    return apiError(c, 'That account is not awaiting a claim')
-  }
-  if (!constantTimeEquals(user.claim_token, parsed.data.token)) {
-    return apiError(c, 'That account is not awaiting a claim')
-  }
+  if (!user?.claim_token || user.password_hash !== null) return refuse()
+  if (!constantTimeEquals(user.claim_token, parsed.data.token)) return refuse()
 
   const passwordHash = await deriveAuthHash(
     parsed.data.masterPasswordHash,

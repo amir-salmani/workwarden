@@ -9,7 +9,7 @@ status: active
 
 # Route surface
 
-40 routes.
+41 routes.
 
 | Method | Path |
 |---|---|
@@ -44,6 +44,7 @@ status: active
 | POST | `/api/folders` |
 | POST | `/api/folders/:id` |
 | POST | `/api/sends` |
+| POST | `/api/sends/access/:accessId` |
 | POST | `/identity/accounts/prelogin` |
 | POST | `/identity/accounts/prelogin/password` |
 | POST | `/identity/connect/token` |
