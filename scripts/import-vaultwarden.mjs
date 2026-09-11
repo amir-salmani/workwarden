@@ -25,6 +25,18 @@ const rows = (q, ...a) => vw.prepare(q).all(...a)
 const sql = postgres(process.env.DATABASE_URL)
 const claims = []
 
+// Vaultwarden stores a cipher's data with PascalCase keys and lower-cases the
+// first letter when it serves a client -- so the stored form is not the wire
+// form. Importing it verbatim produces items whose `Username` and `Password` no
+// client can find. This is the same conversion Vaultwarden does on read.
+const camel = (v) => {
+  if (Array.isArray(v)) return v.map(camel)
+  if (v === null || typeof v !== 'object') return v
+  return Object.fromEntries(
+    Object.entries(v).map(([k, val]) => [k.charAt(0).toLowerCase() + k.slice(1), camel(val)]),
+  )
+}
+
 const parse = (v, fallback) => {
   if (v === null || v === undefined || v === '') return fallback
   try {
@@ -34,8 +46,9 @@ const parse = (v, fallback) => {
   }
 }
 
-// Vaultwarden's atype: 1 login, 2 note, 3 card, 4 identity.
-const TYPE_KEY = { 1: 'login', 2: 'secureNote', 3: 'card', 4: 'identity' }
+// Vaultwarden's atype. 5 is Bitwarden's newer SSH key type -- a real vault had
+// one, and without it the item would import stripped of its contents.
+const TYPE_KEY = { 1: 'login', 2: 'secureNote', 3: 'card', 4: 'identity', 5: 'sshKey' }
 
 for (const user of rows('select * from users')) {
   const favourites = new Set(
@@ -81,15 +94,16 @@ for (const user of rows('select * from users')) {
       'select * from ciphers where user_uuid = ? and organization_uuid is null',
       user.uuid,
     )) {
-      const typeData = parse(cipher.data, {})
+      const typeData = camel(parse(cipher.data, {}))
       const key = TYPE_KEY[cipher.atype]
+      if (!key) throw new Error(`cipher ${cipher.uuid}: unknown Vaultwarden atype ${cipher.atype}`)
       // Vaultwarden keeps the item's own fields beside the type-specific blob;
       // Bitwarden's format has them at the top level of one object.
       const data = {
         name: cipher.name,
         notes: cipher.notes ?? null,
-        fields: parse(cipher.fields, null),
-        passwordHistory: parse(cipher.password_history, null),
+        fields: camel(parse(cipher.fields, null)),
+        passwordHistory: camel(parse(cipher.password_history, null)),
         key: cipher.key ?? null,
         ...(key ? { [key]: typeData } : {}),
       }
