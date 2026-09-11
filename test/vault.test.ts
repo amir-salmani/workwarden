@@ -178,3 +178,29 @@ it('does not mistake /import for a cipher id', async () => {
   const res = await api('/api/ciphers/import', { method: 'POST', body: JSON.stringify({}) })
   expect(res.status).toBe(200)
 })
+
+it("keeps a cipher's own encryption key instead of overwriting it", async () => {
+  const created = await api('/api/ciphers', {
+    method: 'POST',
+    body: JSON.stringify({
+      type: 1,
+      name: '2.item-with-its-own-key',
+      key: '2.per-cipher-key',
+      login: { username: '2.u' },
+    }),
+  })
+  expect(created.status).toBe(200)
+  expect((await created.json()) as { key: string }).toMatchObject({ key: '2.per-cipher-key' })
+
+  const body = await getSync()
+  expect((body.ciphers[0] as unknown as { key: string }).key).toBe('2.per-cipher-key')
+})
+
+it('still reports a null key for ciphers that have none', async () => {
+  await api('/api/ciphers', {
+    method: 'POST',
+    body: JSON.stringify({ type: 1, name: '2.plain', login: { username: '2.u' } }),
+  })
+  const body = await getSync()
+  expect((body.ciphers[0] as unknown as { key: string | null }).key).toBeNull()
+})
