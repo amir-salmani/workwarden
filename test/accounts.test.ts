@@ -129,3 +129,92 @@ it('refuses a wrong claim token, and a replayed one', async () => {
   expect((await claimWith('the-real-claim-token')).status).toBe(200)
   expect((await claimWith('the-real-claim-token')).status).toBe(400)
 })
+
+it('changes the master password and logs other devices out', async () => {
+  await register()
+  const auth = await authHeaders()
+  const before = await login(ALICE, '10.1.0.1')
+  expect(before.status).toBe(200)
+
+  const res = await SELF.fetch(`${ORIGIN}/api/accounts/password`, {
+    method: 'POST',
+    headers: { ...auth, 'content-type': 'application/json' },
+    body: JSON.stringify({
+      masterPasswordHash: ALICE.masterPasswordHash,
+      newMasterPasswordHash: 'bmV3LWhhc2g=',
+      key: '2.rewrapped-user-key',
+    }),
+  })
+  expect(res.status).toBe(200)
+
+  // The old password stops working, the new one starts.
+  expect((await login(ALICE, '10.1.0.2')).status).toBe(400)
+  const after = await login({ ...ALICE, masterPasswordHash: 'bmV3LWhhc2g=' }, '10.1.0.3')
+  expect(after.status).toBe(200)
+  expect(((await after.json()) as { Key: string }).Key).toBe('2.rewrapped-user-key')
+
+  // The token issued before the change no longer works.
+  expect((await SELF.fetch(`${ORIGIN}/api/accounts/profile`, { headers: auth })).status).toBe(401)
+})
+
+it('refuses a password change that does not prove the current password', async () => {
+  await register()
+  const auth = await authHeaders()
+  const res = await SELF.fetch(`${ORIGIN}/api/accounts/password`, {
+    method: 'POST',
+    headers: { ...auth, 'content-type': 'application/json' },
+    body: JSON.stringify({
+      masterPasswordHash: 'not-the-current-one',
+      newMasterPasswordHash: 'bmV3',
+      key: '2.k',
+    }),
+  })
+  expect(res.status).toBe(400)
+  expect((await login(ALICE, '10.1.0.4')).status).toBe(200)
+})
+
+it('rotates the account key and every item with it, in one transaction', async () => {
+  await register()
+  const auth = await authHeaders()
+  const headers = { ...auth, 'content-type': 'application/json' }
+
+  const created = await SELF.fetch(`${ORIGIN}/api/ciphers`, {
+    method: 'POST',
+    headers,
+    body: JSON.stringify({ type: 1, name: '2.old-wrapping', login: { username: '2.u' } }),
+  })
+  const { id } = (await created.json()) as { id: string }
+  const folder = await SELF.fetch(`${ORIGIN}/api/folders`, {
+    method: 'POST',
+    headers,
+    body: JSON.stringify({ name: '2.old-folder' }),
+  })
+  const folderId = ((await folder.json()) as { id: string }).id
+
+  const res = await SELF.fetch(`${ORIGIN}/api/accounts/key`, {
+    method: 'POST',
+    headers,
+    body: JSON.stringify({
+      masterPasswordHash: ALICE.masterPasswordHash,
+      key: '2.rotated-user-key',
+      ciphers: [{ id, type: 1, name: '2.new-wrapping', login: { username: '2.u2' } }],
+      folders: [{ id: folderId, name: '2.new-folder' }],
+      sends: [],
+    }),
+  })
+  expect(res.status).toBe(200)
+
+  // The stamp rotated, so a fresh login is needed to see the result.
+  const fresh = await login(ALICE, '10.1.0.5')
+  const { access_token } = (await fresh.json()) as { access_token: string }
+  const sync = (await (
+    await SELF.fetch(`${ORIGIN}/api/sync`, { headers: { Authorization: `Bearer ${access_token}` } })
+  ).json()) as {
+    profile: { key: string }
+    ciphers: { name: string }[]
+    folders: { name: string }[]
+  }
+  expect(sync.profile.key).toBe('2.rotated-user-key')
+  expect(sync.ciphers[0]?.name).toBe('2.new-wrapping')
+  expect(sync.folders[0]?.name).toBe('2.new-folder')
+})

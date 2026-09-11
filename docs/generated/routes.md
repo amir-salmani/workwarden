@@ -9,7 +9,7 @@ status: active
 
 # Route surface
 
-43 routes.
+45 routes.
 
 | Method | Path |
 |---|---|
@@ -32,6 +32,8 @@ status: active
 | GET | `/notifications/hub` |
 | GET | `/robots.txt` |
 | POST | `/api/accounts/claim` |
+| POST | `/api/accounts/key` |
+| POST | `/api/accounts/password` |
 | POST | `/api/accounts/prelogin` |
 | POST | `/api/accounts/register` |
 | POST | `/api/ciphers` |

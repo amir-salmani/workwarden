@@ -51,7 +51,7 @@ ciphers.post('/', async (c) => {
     insert into ciphers (user_id, folder_id, type, data, favorite, reprompt)
     values (
       ${c.get('user').id}, ${parsed.data.folderId ?? null}, ${parsed.data.type},
-      ${c.get('sql').json(blob(body))}, ${parsed.data.favorite ?? false},
+      ${c.get('sql').json(cipherBlob(body))}, ${parsed.data.favorite ?? false},
       ${parsed.data.reprompt ?? 0}
     ) returning id`
   const id = rows[0]?.id
@@ -100,7 +100,7 @@ ciphers.post('/import', async (c) => {
         insert into ciphers (user_id, folder_id, type, data, favorite, reprompt)
         values (
           ${userId}, ${folderFor.get(index) ?? null}, ${parsedCipher.data.type},
-          ${tx.json(blob(cipher))}, ${parsedCipher.data.favorite ?? false},
+          ${tx.json(cipherBlob(cipher))}, ${parsedCipher.data.favorite ?? false},
           ${parsedCipher.data.reprompt ?? 0}
         )`
     }
@@ -130,7 +130,7 @@ ciphers.on(['PUT', 'POST'], '/:id', async (c) => {
     update ciphers set
       folder_id     = ${parsed.data.folderId ?? null},
       type          = ${parsed.data.type},
-      data          = ${c.get('sql').json(blob(body))},
+      data          = ${c.get('sql').json(cipherBlob(body))},
       favorite      = ${parsed.data.favorite ?? false},
       reprompt      = ${parsed.data.reprompt ?? 0},
       revision_date = now()
@@ -249,7 +249,7 @@ async function removeAttachment(c: Context<App>) {
   return c.body(null, 200)
 }
 
-function blob(body: Record<string, unknown>): JSONValue {
+export function cipherBlob(body: Record<string, unknown>): JSONValue {
   const out = { ...body }
   for (const field of SERVER_FIELDS) delete out[field]
   return out as JSONValue

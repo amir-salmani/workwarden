@@ -3,9 +3,24 @@ import { connect } from '../src/db.ts'
 
 export const ORIGIN = 'https://vault.example.com'
 
+/** Emails used across the suite; their throttle counters must not carry over. */
+const TEST_EMAILS = [
+  'alice@example.com',
+  'bob@example.com',
+  'imported@example.com',
+  'replay@example.com',
+]
+
 export async function resetDatabase() {
   const sql = connect(env)
   await sql`truncate users cascade`
+  // Truncating Postgres does not touch Durable Object storage, so failed-login
+  // counts from one test would lock out the next.
+  await Promise.all(
+    TEST_EMAILS.map((email) =>
+      env.THROTTLE.get(env.THROTTLE.idFromName(`login:email:${email}`)).clear(),
+    ),
+  )
 }
 
 export type Registration = {

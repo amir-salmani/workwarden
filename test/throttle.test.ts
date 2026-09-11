@@ -6,11 +6,6 @@ import { ALICE, login, ORIGIN, register, resetDatabase } from './support.ts'
 beforeEach(async () => {
   await resetDatabase()
   await register()
-  // resetDatabase clears Postgres, not Durable Object storage, so failure
-  // counts would carry from one test into the next.
-  for (const email of [ALICE.email, 'bob@example.com']) {
-    await env.THROTTLE.get(env.THROTTLE.idFromName(`login:email:${email}`)).clear()
-  }
 })
 
 // Each test gets its own source address so one cannot lock out another.
