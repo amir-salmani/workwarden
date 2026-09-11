@@ -63,6 +63,9 @@ const cleanup = async () => {
 
 try {
   await ready()
+  // The address is fixed now, so a run that died before its cleanup would block
+  // every run after it on "user already exists".
+  await cleanup()
   await step('config', () => fetch(`${base}/api/config`))
 
   await step('register', () =>
