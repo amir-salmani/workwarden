@@ -252,16 +252,23 @@ emergencyAccess.post('/:id/password', async (c) => {
 
   const salt = randomSalt()
   const hash = await deriveAuthHash(parsed.data.newMasterPasswordHash, salt, c.env.AUTH_PEPPER)
-  // Rotating the stamp logs the grantor's own devices out, which is the signal
-  // they get that this happened.
-  await sql`
-    update users
-       set password_hash = ${hash}, salt = ${salt}, akey = ${parsed.data.key},
-           security_stamp = gen_random_uuid(), revision_date = now()
-     where id = ${grant.grantor_id}`
-  await sql`
-    update emergency_accesses set status = ${CONFIRMED}, recovery_initiated_at = null
-     where id = ${grant.id}`
+  await sql.begin(async (tx) => {
+    // Rotating the stamp logs the grantor's own devices out, which is the signal
+    // they get that this happened.
+    await tx`
+      update users
+         set password_hash = ${hash}, salt = ${salt}, akey = ${parsed.data.key},
+             security_stamp = gen_random_uuid(), revision_date = now()
+       where id = ${grant.grantor_id}`
+    // And the grantor's second factor goes with it. Nobody can produce a code
+    // from an authenticator belonging to someone who cannot be reached, so
+    // leaving it on would hand back an account no one can open. What guards the
+    // account here is the wait timer and the grantor's power to reject, not TOTP.
+    await tx`delete from two_factors where user_id = ${grant.grantor_id}`
+    await tx`
+      update emergency_accesses set status = ${CONFIRMED}, recovery_initiated_at = null
+       where id = ${grant.id}`
+  })
   return c.body(null, 200)
 })
 

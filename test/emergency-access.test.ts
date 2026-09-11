@@ -1,5 +1,6 @@
 import { env, SELF } from 'cloudflare:test'
 import { beforeEach, expect, it } from 'vitest'
+import { codeFor, stepFor } from '../src/auth/totp.ts'
 import { connect } from '../src/db.ts'
 import {
   ALICE,
@@ -187,4 +188,30 @@ it('lets either side walk away', async () => {
     data: unknown[]
   }
   expect(trusted.data).toHaveLength(0)
+})
+
+it('clears the grantor’s second factor on takeover, or the reset is useless', async () => {
+  // Alice turns on TOTP, then becomes unreachable.
+  const got = await post(alice, '/api/two-factor/get-authenticator', {
+    masterPasswordHash: ALICE.masterPasswordHash,
+  })
+  const { key } = (await got.json()) as { key: string }
+  const enabled = await post(alice, '/api/two-factor/authenticator', {
+    masterPasswordHash: ALICE.masterPasswordHash,
+    key,
+    token: await codeFor(key, stepFor()),
+  })
+  expect(enabled.status).toBe(200)
+
+  const id = await grant(1)
+  await post(bob, `/api/emergency-access/${id}/initiate`)
+  await post(alice, `/api/emergency-access/${id}/approve`)
+  await post(bob, `/api/emergency-access/${id}/password`, {
+    newMasterPasswordHash: 'bmV3LWhhc2g=',
+    key: '2.rewrapped-key',
+  })
+
+  // Nobody can supply Alice's authenticator code -- that is the premise.
+  const after = await login({ ...ALICE, masterPasswordHash: 'bmV3LWhhc2g=' }, 'ea-2fa')
+  expect(after.status).toBe(200)
 })
