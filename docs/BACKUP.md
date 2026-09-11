@@ -4,7 +4,7 @@ title: The backup, and why restore is server-side
 description: An automated encrypted export off Cloudflare and off Neon, and the client constraint that shapes it.
 status: settled
 created: 2026-09-11
-timestamp: 2026-09-11
+timestamp: 2026-09-12
 tags: [workwarden, backup, export, restore]
 related:
   - FEASIBILITY.md
@@ -34,6 +34,17 @@ by construction.
 
 The account block is the difference between an export you can *read* and one you
 can *restore*. Without it the ciphertext is unopenable by anyone, forever.
+
+**What it does not carry**, as of 2026-09-12:
+
+| | Lost if Neon and R2 both vanish | Why it is acceptable |
+|---|---|---|
+| Attachment **blobs** (R2) | yes — the item survives, the file does not | the only irreplaceable one; one file today |
+| Sends | yes | they expire by design; a Send older than its deletion date is already gone |
+| 2FA enrolment | yes | re-enrol from the authenticator app in a minute |
+| Emergency-access grants | yes | re-invite; the grantee's own vault is untouched |
+
+Trashed items *are* carried: they are ordinary rows with a deletion date.
 
 On top of that, [age](https://age-encryption.org) public-key encryption. CI holds
 the **recipient**, never the identity — so a compromised workflow can write a
