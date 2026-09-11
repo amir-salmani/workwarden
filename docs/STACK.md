@@ -43,6 +43,7 @@ Phase 0 ratified the KDF choice on real workerd
 | Lint / format | [Biome](https://biomejs.dev) | one binary, replaces ESLint + Prettier |
 | CI/CD | GitHub Actions | §3 |
 | Secrets | Worker secrets / Secrets Store | the pepper; the DB URL lives in Hyperdrive, never in the Worker |
+| Signup | `SIGNUP_ALLOWLIST` | addresses or `@domain`; unset means nobody, so a missing value fails closed |
 | Web vault | **not shipped** | §2.5 |
 
 ---
