@@ -36,7 +36,11 @@ export async function register(who: Registration = ALICE) {
   })
 }
 
-export async function login(who: Registration = ALICE) {
+/**
+ * `ip` sets cf-connecting-ip. The login throttle counts per address as well as
+ * per account, so tests that share one address would lock each other out.
+ */
+export async function login(who: Registration = ALICE, ip?: string) {
   const body = new FormData()
   body.append('grant_type', 'password')
   body.append('username', who.email)
@@ -45,12 +49,15 @@ export async function login(who: Registration = ALICE) {
   body.append('deviceIdentifier', 'test-device')
   body.append('deviceName', 'vitest')
   body.append('deviceType', '9')
-  const res = await SELF.fetch(`${ORIGIN}/identity/connect/token`, { method: 'POST', body })
-  return res
+  return SELF.fetch(`${ORIGIN}/identity/connect/token`, {
+    method: 'POST',
+    body,
+    headers: ip ? { 'cf-connecting-ip': ip } : {},
+  })
 }
 
 export async function authHeaders(who: Registration = ALICE) {
-  const res = await login(who)
+  const res = await login(who, `auth-${Math.random()}`)
   const { access_token } = (await res.json()) as { access_token: string }
   return { Authorization: `Bearer ${access_token}` }
 }

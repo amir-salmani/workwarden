@@ -5,6 +5,7 @@ type WorkwardenSecrets = {
   HYPERDRIVE: Hyperdrive
   ATTACHMENTS: R2Bucket
   NOTIFICATIONS: DurableObjectNamespace<import('./notifications.ts').NotificationHub>
+  THROTTLE: DurableObjectNamespace<import('./throttle-object.ts').Throttle>
 
   AUTH_PEPPER: string
   JWT_SECRET: string

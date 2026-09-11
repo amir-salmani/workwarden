@@ -5,6 +5,13 @@ import type { App } from '../app.ts'
 import { constantTimeEquals, deriveAuthHash } from '../auth/kdf.ts'
 import { ACCESS_TOKEN_TTL, issueAccessToken, randomToken } from '../auth/tokens.ts'
 import { withDb } from '../db.ts'
+import {
+  blockedFor,
+  clearFailures,
+  loginKeys,
+  recordFailure,
+  tooManyAttempts,
+} from '../throttle.ts'
 import { findByEmail, findById, type User } from '../users.ts'
 import { prelogin } from './prelogin.ts'
 
@@ -64,6 +71,12 @@ identity.post('/connect/token', async (c) => {
   if (!grant.success) return oauthError(c, 'unsupported_grant_type', 'Unsupported grant type')
 
   const { username, password, scope, deviceIdentifier, deviceName, deviceType } = grant.data
+
+  // Checked before the KDF, so a locked-out caller cannot spend our CPU either.
+  const keys = loginKeys(c, username)
+  const wait = await blockedFor(c, keys)
+  if (wait > 0) return tooManyAttempts(c, wait)
+
   const user = await findByEmail(sql, username)
 
   // Derive even when the user does not exist, so a missing account and a wrong
@@ -74,8 +87,10 @@ identity.post('/connect/token', async (c) => {
   // An imported account has no password hash until it is claimed. Deriving
   // anyway keeps the timing identical to a wrong password.
   if (!user?.password_hash || !constantTimeEquals(authHash, user.password_hash)) {
+    await recordFailure(c, keys)
     return oauthError(c, 'invalid_grant', 'Username or password is incorrect. Try again')
   }
+  await clearFailures(c, keys)
 
   const refreshToken = randomToken()
   await sql`

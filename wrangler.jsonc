@@ -39,9 +39,15 @@
   // One hub per user, holding that user's open clients. SQLite backend because
   // that is the only kind the free plan allows.
   "durable_objects": {
-    "bindings": [{ "name": "NOTIFICATIONS", "class_name": "NotificationHub" }]
+    "bindings": [
+      { "name": "NOTIFICATIONS", "class_name": "NotificationHub" },
+      { "name": "THROTTLE", "class_name": "Throttle" }
+    ]
   },
-  "migrations": [{ "tag": "v1", "new_sqlite_classes": ["NotificationHub"] }],
+  "migrations": [
+    { "tag": "v1", "new_sqlite_classes": ["NotificationHub"] },
+    { "tag": "v2", "new_sqlite_classes": ["Throttle"] }
+  ],
 
   "observability": {
     "enabled": true,
@@ -72,7 +78,10 @@
       ],
       "r2_buckets": [{ "binding": "ATTACHMENTS", "bucket_name": "workwarden-attachments-preview" }],
       "durable_objects": {
-        "bindings": [{ "name": "NOTIFICATIONS", "class_name": "NotificationHub" }]
+        "bindings": [
+          { "name": "NOTIFICATIONS", "class_name": "NotificationHub" },
+          { "name": "THROTTLE", "class_name": "Throttle" }
+        ]
       }
     }
   }
