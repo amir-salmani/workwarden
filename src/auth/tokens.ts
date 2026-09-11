@@ -8,7 +8,7 @@ export const ACCESS_TOKEN_TTL = 3600
 // (STACK.md §6) and decides whether HS256 can stay. It costs 1 ms (PHASE0.md).
 const ALG = 'HS256'
 
-export type AccessClaims = {
+type AccessClaims = {
   sub: string
   email: string
   sstamp: string

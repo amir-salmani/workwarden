@@ -1,4 +1,5 @@
 import { DurableObject } from 'cloudflare:workers'
+import type { Packable } from './signalr/messagepack.ts'
 import {
   encodeHandshakeResponse,
   MessageType,
@@ -21,7 +22,7 @@ export class NotificationHub extends DurableObject {
     const url = new URL(request.url)
 
     if (url.pathname.endsWith('/broadcast')) {
-      const { type, payload } = (await request.json()) as { type: number; payload: unknown }
+      const { type, payload } = (await request.json()) as { type: number; payload: Packable }
       return new Response(String(this.broadcast(type, payload)))
     }
 
@@ -70,8 +71,8 @@ export class NotificationHub extends DurableObject {
     ws.close(code === 1005 ? 1000 : code, reason)
   }
 
-  broadcast(type: number, payload: unknown): number {
-    const message = notify(type, payload as never)
+  broadcast(type: number, payload: Packable): number {
+    const message = notify(type, payload)
     let delivered = 0
     for (const ws of this.ctx.getWebSockets()) {
       const state = ws.deserializeAttachment() as { handshaken?: boolean } | null

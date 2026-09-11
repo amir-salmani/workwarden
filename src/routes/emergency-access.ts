@@ -10,8 +10,8 @@ import { apiError, insensitive } from '../http.ts'
 export const emergencyAccess = new Hono<App>()
 emergencyAccess.use('*', requireUser())
 
-export const VIEW = 0
-export const TAKEOVER = 1
+const VIEW = 0
+const TAKEOVER = 1
 
 const INVITED = 0
 const ACCEPTED = 1

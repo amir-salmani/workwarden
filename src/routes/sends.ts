@@ -48,7 +48,7 @@ sends.get('/:id', async (c) => {
  * The cap is this server's, not Bitwarden's: `formData()` buffers the upload in
  * an isolate with 128 MB of memory.
  */
-export const MAX_SEND_FILE = 25 * 1024 * 1024
+const MAX_SEND_FILE = 25 * 1024 * 1024
 
 const fileSendInput = z.object({
   fileLength: z.coerce.number().int().positive().max(MAX_SEND_FILE),

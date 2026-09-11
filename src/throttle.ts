@@ -8,7 +8,7 @@ import type { App } from './app.ts'
  */
 
 export const LOGIN_LIMIT = 10
-export const LOGIN_WINDOW_SECONDS = 300
+const LOGIN_WINDOW_SECONDS = 300
 
 function bucket(c: Context<App>, key: string) {
   return c.env.THROTTLE.get(c.env.THROTTLE.idFromName(key))

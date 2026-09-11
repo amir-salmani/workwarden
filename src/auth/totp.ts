@@ -9,7 +9,7 @@ const STEP_SECONDS = 30
 const DIGITS = 6
 
 /** Codes from one step either side are accepted, for clock drift. */
-export const DRIFT_STEPS = 1
+const DRIFT_STEPS = 1
 
 const BASE32 = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ234567'
 

@@ -14,7 +14,7 @@ twoFactor.use('*', requireUser())
 /** 0 is Bitwarden's authenticator (TOTP) provider. */
 export const AUTHENTICATOR = 0
 
-export type SecondFactor = {
+type SecondFactor = {
   user_id: string
   type: number
   enabled: boolean
