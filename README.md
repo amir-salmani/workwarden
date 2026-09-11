@@ -61,6 +61,13 @@ A password manager should say these out loud rather than bury them.
   which ship their own code.
 - **CI can deploy modified server code.** The Cloudflare API token lives in
   GitHub Secrets. Not fully closable while CI deploys.
+- **There is no email.** Nothing here can send one, so an emergency-access
+  invite only reaches someone who already has an account on this server, and a
+  grantor learns that recovery started by opening a client, not from an inbox.
+- **Nobody has audited this.** Bitwarden is audited annually and Vaultwarden
+  twice in 2024 — one of those found an authentication bypass in code far more
+  reviewed than this. [ASSURANCE.md](docs/ASSURANCE.md) sets out what that means
+  and what is done instead.
 - **The hosting account carries sanctions risk.**
   [FEASIBILITY.md §1.7](docs/FEASIBILITY.md). Storage lives outside Cloudflare so
   a suspension costs the compute, not the vault — but never make this the only

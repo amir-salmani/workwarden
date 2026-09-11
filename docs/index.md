@@ -4,7 +4,7 @@ title: workwarden docs
 description: Feasibility, storage, and stack — the decisions taken before any code.
 status: active
 created: 2026-09-10
-timestamp: 2026-09-10
+timestamp: 2026-09-12
 tags: [workwarden]
 ---
 
@@ -18,7 +18,8 @@ Read in order. Each one answers a question the next one assumes.
 
 - [FEASIBILITY.md](FEASIBILITY.md) — *Can this be built on the Workers free
   tier, and is the niche already taken?* Go, reframed: not a third "Vaultwarden
-  on Workers" but the trustworthy one with organizations.
+  on Workers" but the trustworthy one. (Its organizations answer was later
+  reversed — see FLATTENING.md.)
 - [STORAGE.md](STORAGE.md) — *Where does the vault live?* Neon Postgres behind
   Hyperdrive. Decided on the exit path, not on capacity.
 - [STACK.md](STACK.md) — *What is it built out of?* TypeScript, Hono, raw SQL.
@@ -31,9 +32,14 @@ Read in order. Each one answers a question the next one assumes.
 - [MIGRATION.md](MIGRATION.md) — *How does an existing Vaultwarden vault get
   here?* Through a client, never the database — the password hashes are not
   convertible.
+- [ASSURANCE.md](ASSURANCE.md) — *Bitwarden and Vaultwarden are audited; why
+  isn't this?* Four of the five things that make a password manager trustworthy
+  are here. The fifth costs money, and is disclosed rather than compensated for.
 - [PHASE0.md](PHASE0.md) — *How do we get real CPU numbers?* Not from inside the
   Worker: workerd freezes the clock during execution.
 
 [generated/](generated/index.md) is regenerable from source and is not authored.
 
-Phase 0 is scaffolded; nothing is deployed.
+Live at `vault.amirsalmani.com` since 2026-09-11. Feature parity with the
+Vaultwarden it replaced, minus organizations, which were deliberately flattened
+away.
