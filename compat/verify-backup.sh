@@ -73,6 +73,21 @@ echo "ok   deleted the vault"
 node "$root/scripts/restore-vault.mjs" "$BACKUP" >/dev/null
 echo "ok   restored from the encrypted backup"
 
+# What the server will actually authenticate against, so a failure below says
+# which half is wrong: the row, or the client's view of it.
+node -e '
+  const postgres = require("postgres")
+  const sql = postgres(process.env.DATABASE_URL)
+  sql`select email, kdf_type, kdf_iterations, length(salt) as salt_len,
+             left(password_hash, 8) as hash_head, claim_token is null as no_claim
+        from users where email = ${process.argv[1]}`
+    .then((r) => { console.log("     restored row:", JSON.stringify(r[0] ?? null)); return sql.end() })
+' "$EMAIL"
+curl -sk -X POST "$BASE/identity/accounts/prelogin/password" \
+  -H 'content-type: application/json' -d "{\"email\":\"$EMAIL\"}" \
+  | sed 's/^/     prelogin says: /'
+echo
+
 # A brand new client directory: nothing cached, nothing remembered.
 export BITWARDENCLI_APPDATA_DIR="$OUT/bw-fresh"
 npx --no-install bw config server "$BASE" >/dev/null
