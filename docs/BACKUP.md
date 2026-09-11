@@ -87,7 +87,36 @@ PASS the backup restores a working vault
 It runs on every pull request, against that PR's own Neon branch, with a keypair
 generated and discarded inside the run.
 
-## Part 5 — Where the file goes
+## Part 5 — Leaving, for anywhere
+
+The files in `vaults/` are Bitwarden-shaped, but every field inside them is
+still ciphertext under the account key. **They cannot be imported into
+1Password, Bitwarden cloud, or anything else directly.** Only a client holding
+the master password can turn them back into readable items.
+
+So the exit always has the same shape, whatever the destination and however many
+years later:
+
+1. stand a server up from a backup — workwarden, or the archived Vaultwarden
+2. point a client at it
+3. let the client export
+
+```sh
+bw config server <that server>
+bw login you@example.com
+
+bw export --format encrypted_json --password '<transfer passphrase>'  # Bitwarden, Vaultwarden
+bw export --format json                                               # anything else, PLAINTEXT
+```
+
+`encrypted_json` with `--password` is keyed by the passphrase rather than the
+account, which is what makes it portable between accounts and servers. Prefer
+it.
+
+Plaintext `json`/`csv` is what 1Password and KeePass actually accept. It is
+every password you own, readable. Write it to `/dev/shm`, import, `shred -u`.
+
+## Part 6 — Where the file goes
 
 A private GitHub repository, `workwarden-backups`, written daily by
 `.github/workflows/backup.yml`. One age-encrypted file per vault; git history is
