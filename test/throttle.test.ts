@@ -1,4 +1,4 @@
-import { env, SELF } from 'cloudflare:test'
+import { SELF } from 'cloudflare:test'
 import { beforeEach, expect, it } from 'vitest'
 import { LOGIN_LIMIT } from '../src/throttle.ts'
 import { ALICE, login, ORIGIN, register, resetDatabase } from './support.ts'

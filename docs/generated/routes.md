@@ -9,7 +9,7 @@ status: active
 
 # Route surface
 
-45 routes.
+50 routes.
 
 | Method | Path |
 |---|---|
@@ -26,6 +26,7 @@ status: active
 | GET | `/api/sends` |
 | GET | `/api/sends/:id` |
 | GET | `/api/sync` |
+| GET | `/api/two-factor` |
 | GET | `/attachments/:cipherId/:attachmentId` |
 | GET | `/favicon.ico` |
 | GET | `/icons/:domain/icon.png` |
@@ -48,6 +49,9 @@ status: active
 | POST | `/api/folders/:id` |
 | POST | `/api/sends` |
 | POST | `/api/sends/access/:accessId` |
+| POST | `/api/two-factor/authenticator` |
+| POST | `/api/two-factor/disable` |
+| POST | `/api/two-factor/get-authenticator` |
 | POST | `/identity/accounts/prelogin` |
 | POST | `/identity/accounts/prelogin/password` |
 | POST | `/identity/connect/token` |
@@ -58,3 +62,4 @@ status: active
 | PUT | `/api/folders/:id` |
 | PUT | `/api/sends/:id` |
 | PUT | `/api/sends/:id/remove-password` |
+| PUT | `/api/two-factor/disable` |

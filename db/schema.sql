@@ -257,6 +257,21 @@ CREATE VIEW public.send_details AS
 
 
 --
+-- Name: two_factors; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.two_factors (
+    user_id uuid NOT NULL,
+    type smallint NOT NULL,
+    enabled boolean DEFAULT true NOT NULL,
+    secret text NOT NULL,
+    recovery text,
+    last_used_step bigint,
+    created_at timestamp with time zone DEFAULT now() NOT NULL
+);
+
+
+--
 -- Name: users; Type: TABLE; Schema: public; Owner: -
 --
 
@@ -352,6 +367,14 @@ ALTER TABLE ONLY public.schema_migrations
 
 ALTER TABLE ONLY public.sends
     ADD CONSTRAINT sends_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: two_factors two_factors_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.two_factors
+    ADD CONSTRAINT two_factors_pkey PRIMARY KEY (user_id, type);
 
 
 --
@@ -459,6 +482,14 @@ ALTER TABLE ONLY public.folders
 
 ALTER TABLE ONLY public.sends
     ADD CONSTRAINT sends_user_id_fkey FOREIGN KEY (user_id) REFERENCES public.users(id) ON DELETE CASCADE;
+
+
+--
+-- Name: two_factors two_factors_user_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.two_factors
+    ADD CONSTRAINT two_factors_user_id_fkey FOREIGN KEY (user_id) REFERENCES public.users(id) ON DELETE CASCADE;
 
 
 --

@@ -12,6 +12,7 @@ import { notifications } from './routes/notifications.ts'
 import { sendAccess } from './routes/send-access.ts'
 import { sends } from './routes/sends.ts'
 import { sync } from './routes/sync.ts'
+import { twoFactor } from './routes/two-factor.ts'
 import type { User } from './users.ts'
 
 export type App = {
@@ -33,6 +34,7 @@ export function createApp() {
   // Declared before /api/sends so "access" is not read as a send id.
   app.route('/api/sends/access', sendAccess)
   app.route('/api/sends', sends)
+  app.route('/api/two-factor', twoFactor)
   // Outside /api: the URL handed to clients in a cipher's attachment list.
   app.use('/attachments/*', withDb())
   app.route('/attachments', attachments)
