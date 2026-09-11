@@ -18,6 +18,9 @@ env:
 
 jobs:
   cleanup:
+    # Dependabot pull requests are not given repository secrets, so a preview
+    # would fail on the first API call and make every bump look broken.
+    if: github.actor != 'dependabot[bot]'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
