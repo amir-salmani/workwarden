@@ -1,10 +1,7 @@
---
--- PostgreSQL database dump
---
-
+\restrict dbmate
 
 -- Dumped from database version 18.6
--- Dumped by pg_dump version 18.6
+-- Dumped by pg_dump version 18.6 (Ubuntu 18.6-0ubuntu0.26.04.1)
 
 SET statement_timeout = 0;
 SET lock_timeout = 0;
@@ -172,6 +169,25 @@ CREATE TABLE public.devices (
     refresh_token text,
     created_at timestamp with time zone DEFAULT now() NOT NULL,
     revision_date timestamp with time zone DEFAULT now() NOT NULL
+);
+
+
+--
+-- Name: emergency_accesses; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.emergency_accesses (
+    id uuid DEFAULT gen_random_uuid() NOT NULL,
+    grantor_id uuid NOT NULL,
+    grantee_id uuid,
+    email text,
+    key_encrypted text,
+    type smallint DEFAULT 0 NOT NULL,
+    status smallint DEFAULT 0 NOT NULL,
+    wait_time_days integer DEFAULT 7 NOT NULL,
+    recovery_initiated_at timestamp with time zone,
+    created_at timestamp with time zone DEFAULT now() NOT NULL,
+    updated_at timestamp with time zone DEFAULT now() NOT NULL
 );
 
 
@@ -346,6 +362,14 @@ ALTER TABLE ONLY public.devices
 
 
 --
+-- Name: emergency_accesses emergency_accesses_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.emergency_accesses
+    ADD CONSTRAINT emergency_accesses_pkey PRIMARY KEY (id);
+
+
+--
 -- Name: folders folders_pkey; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
@@ -423,6 +447,20 @@ CREATE INDEX devices_user_id_idx ON public.devices USING btree (user_id);
 
 
 --
+-- Name: emergency_accesses_grantee_idx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX emergency_accesses_grantee_idx ON public.emergency_accesses USING btree (grantee_id);
+
+
+--
+-- Name: emergency_accesses_grantor_idx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX emergency_accesses_grantor_idx ON public.emergency_accesses USING btree (grantor_id);
+
+
+--
 -- Name: folders_user_id_idx; Type: INDEX; Schema: public; Owner: -
 --
 
@@ -469,6 +507,22 @@ ALTER TABLE ONLY public.devices
 
 
 --
+-- Name: emergency_accesses emergency_accesses_grantee_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.emergency_accesses
+    ADD CONSTRAINT emergency_accesses_grantee_id_fkey FOREIGN KEY (grantee_id) REFERENCES public.users(id) ON DELETE CASCADE;
+
+
+--
+-- Name: emergency_accesses emergency_accesses_grantor_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.emergency_accesses
+    ADD CONSTRAINT emergency_accesses_grantor_id_fkey FOREIGN KEY (grantor_id) REFERENCES public.users(id) ON DELETE CASCADE;
+
+
+--
 -- Name: folders folders_user_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
 --
 
@@ -496,4 +550,25 @@ ALTER TABLE ONLY public.two_factors
 -- PostgreSQL database dump complete
 --
 
+\unrestrict dbmate
 
+
+--
+-- Dbmate schema migrations
+--
+
+INSERT INTO public.schema_migrations (version) VALUES
+    ('20260910000001'),
+    ('20260910000002'),
+    ('20260911000003'),
+    ('20260911000004'),
+    ('20260911000005'),
+    ('20260911000006'),
+    ('20260911000007'),
+    ('20260911000008'),
+    ('20260911000009'),
+    ('20260911000010'),
+    ('20260912000010'),
+    ('20260912000011'),
+    ('20260912000012'),
+    ('20260912000013');

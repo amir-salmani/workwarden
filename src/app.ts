@@ -4,6 +4,7 @@ import { accounts } from './routes/accounts.ts'
 import { attachments } from './routes/attachments.ts'
 import { ciphers } from './routes/ciphers.ts'
 import { config } from './routes/config.ts'
+import { emergencyAccess } from './routes/emergency-access.ts'
 import { folders } from './routes/folders.ts'
 import { home } from './routes/home.ts'
 import { icons } from './routes/icons.ts'
@@ -35,6 +36,7 @@ export function createApp() {
   app.route('/api/sends/access', sendAccess)
   app.route('/api/sends', sends)
   app.route('/api/two-factor', twoFactor)
+  app.route('/api/emergency-access', emergencyAccess)
   // Outside /api: the URL handed to clients in a cipher's attachment list.
   app.use('/attachments/*', withDb())
   app.route('/attachments', attachments)

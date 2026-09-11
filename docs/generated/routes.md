@@ -9,13 +9,14 @@ status: active
 
 # Route surface
 
-55 routes.
+73 routes.
 
 | Method | Path |
 |---|---|
 | DELETE | `/api/ciphers/:id` |
 | DELETE | `/api/ciphers/:id/attachment/:attachmentId` |
 | DELETE | `/api/ciphers/:id/attachment/:attachmentId/delete` |
+| DELETE | `/api/emergency-access/:id` |
 | DELETE | `/api/folders/:id` |
 | DELETE | `/api/sends/:id` |
 | GET | `/` |
@@ -23,6 +24,9 @@ status: active
 | GET | `/api/accounts/revision-date` |
 | GET | `/api/ciphers/:id` |
 | GET | `/api/config` |
+| GET | `/api/emergency-access/:id/policies` |
+| GET | `/api/emergency-access/granted` |
+| GET | `/api/emergency-access/trusted` |
 | GET | `/api/sends` |
 | GET | `/api/sends/:id` |
 | GET | `/api/sends/access/file/:sendId/:fileId` |
@@ -46,6 +50,18 @@ status: active
 | POST | `/api/ciphers/:id/delete` |
 | POST | `/api/ciphers/:id/restore` |
 | POST | `/api/ciphers/import` |
+| POST | `/api/emergency-access/:id` |
+| POST | `/api/emergency-access/:id/accept` |
+| POST | `/api/emergency-access/:id/approve` |
+| POST | `/api/emergency-access/:id/confirm` |
+| POST | `/api/emergency-access/:id/delete` |
+| POST | `/api/emergency-access/:id/initiate` |
+| POST | `/api/emergency-access/:id/password` |
+| POST | `/api/emergency-access/:id/reinvite` |
+| POST | `/api/emergency-access/:id/reject` |
+| POST | `/api/emergency-access/:id/takeover` |
+| POST | `/api/emergency-access/:id/view` |
+| POST | `/api/emergency-access/invite` |
 | POST | `/api/folders` |
 | POST | `/api/folders/:id` |
 | POST | `/api/sends` |
@@ -64,6 +80,8 @@ status: active
 | PUT | `/api/ciphers/:id` |
 | PUT | `/api/ciphers/:id/delete` |
 | PUT | `/api/ciphers/:id/restore` |
+| PUT | `/api/emergency-access/:id` |
+| PUT | `/api/emergency-access/invite` |
 | PUT | `/api/folders/:id` |
 | PUT | `/api/sends/:id` |
 | PUT | `/api/sends/:id/remove-password` |
