@@ -3,6 +3,7 @@ import { Hono } from 'hono'
 import type { App } from '../app.ts'
 import { issueSendFileToken, sendFileTokenOk } from '../auth/tokens.ts'
 import { apiError } from '../http.ts'
+import { blockedFor, clearFailures, recordFailure, sendKeys } from '../throttle.ts'
 import { sendFileKey } from './sends.ts'
 
 export const sendAccess = new Hono<App>()
@@ -105,10 +106,16 @@ async function reachable(c: Context<App>, accessId: string): Promise<Available |
   }
 
   if (send.password_hash) {
+    const keys = sendKeys(accessId)
+    if ((await blockedFor(c, keys)) > 0) {
+      return apiError(c, 'Too many attempts on that Send. Try again later.', 429)
+    }
     const body = (await c.req.json().catch(() => ({}))) as { password?: string }
     if (body.password !== send.password_hash) {
+      await recordFailure(c, keys)
       return apiError(c, 'That Send is password protected', 401)
     }
+    await clearFailures(c, keys)
   }
   return send
 }

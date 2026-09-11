@@ -256,3 +256,28 @@ it('drops the send when the file is bigger than it reserved', async () => {
 it('turns away the one-request upload older clients used', async () => {
   expect((await api('/api/sends/file', { method: 'POST', body: '{}' })).status).toBe(400)
 })
+
+it('stops someone grinding a password-protected send', async () => {
+  const created = await api('/api/sends', {
+    method: 'POST',
+    body: JSON.stringify({ ...aSend, password: 'hashed-access-password' }),
+  })
+  const { id } = (await created.json()) as { id: string }
+  const url = `${ORIGIN}/api/sends/access/${accessIdOf(id)}`
+  const guess = (password: string) =>
+    SELF.fetch(url, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ password }),
+    })
+
+  for (let i = 0; i < 10; i++) expect((await guess(`wrong-${i}`)).status).toBe(401)
+
+  // Blocked now -- and the right password does not unblock it either.
+  expect((await guess('wrong-again')).status).toBe(429)
+  expect((await guess('hashed-access-password')).status).toBe(429)
+
+  // A failed attempt still must not burn an access.
+  const mine = (await (await api(`/api/sends/${id}`)).json()) as { accessCount: number }
+  expect(mine.accessCount).toBe(0)
+})

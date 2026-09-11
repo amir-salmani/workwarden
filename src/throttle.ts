@@ -24,6 +24,14 @@ export function loginKeys(c: Context<App>, email: string): string[] {
   return [`login:email:${email.toLowerCase()}`, `login:ip:${ip}`]
 }
 
+/**
+ * A Send's password is guarded per Send, not per address: the id is already a
+ * secret, and one recipient behind a shared address must not lock out another.
+ */
+export function sendKeys(accessId: string): string[] {
+  return [`send:${accessId}`]
+}
+
 export async function blockedFor(c: Context<App>, keys: string[]): Promise<number> {
   const waits = await Promise.all(
     keys.map((k) => bucket(c, k).retryAfter(LOGIN_LIMIT, LOGIN_WINDOW_SECONDS)),
