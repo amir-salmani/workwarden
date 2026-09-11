@@ -152,7 +152,7 @@ CREATE TABLE public.users (
     id uuid DEFAULT gen_random_uuid() NOT NULL,
     email public.citext NOT NULL,
     name text,
-    password_hash text NOT NULL,
+    password_hash text,
     salt text NOT NULL,
     password_hint text,
     kdf_type smallint DEFAULT 0 NOT NULL,
@@ -164,7 +164,10 @@ CREATE TABLE public.users (
     public_key text,
     security_stamp uuid DEFAULT gen_random_uuid() NOT NULL,
     created_at timestamp with time zone DEFAULT now() NOT NULL,
-    revision_date timestamp with time zone DEFAULT now() NOT NULL
+    revision_date timestamp with time zone DEFAULT now() NOT NULL,
+    claim_token text,
+    claimed_at timestamp with time zone,
+    CONSTRAINT users_claimable_xor_usable CHECK ((num_nonnulls(password_hash, claim_token) = 1))
 );
 
 
@@ -221,6 +224,14 @@ ALTER TABLE ONLY public.folders
 
 ALTER TABLE ONLY public.schema_migrations
     ADD CONSTRAINT schema_migrations_pkey PRIMARY KEY (version);
+
+
+--
+-- Name: users users_claim_token_key; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.users
+    ADD CONSTRAINT users_claim_token_key UNIQUE (claim_token);
 
 
 --

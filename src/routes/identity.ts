@@ -70,7 +70,10 @@ identity.post('/connect/token', async (c) => {
   // password cost the same and cannot be told apart by timing.
   const salt = user?.salt ?? username.toLowerCase()
   const authHash = await deriveAuthHash(password, salt, c.env.AUTH_PEPPER)
-  if (!user || !constantTimeEquals(authHash, user.password_hash)) {
+
+  // An imported account has no password hash until it is claimed. Deriving
+  // anyway keeps the timing identical to a wrong password.
+  if (!user?.password_hash || !constantTimeEquals(authHash, user.password_hash)) {
     return oauthError(c, 'invalid_grant', 'Username or password is incorrect. Try again')
   }
 
