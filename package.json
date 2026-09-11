@@ -27,7 +27,7 @@
     "@biomejs/biome": "^2.5.12",
     "@bitwarden/cli": "^2026.6.0",
     "@cloudflare/vitest-pool-workers": "^0.22.0",
-    "@types/node": "^22.20.2",
+    "@types/node": "^26.4.1",
     "dbmate": "^2.35.1",
     "typescript": "^7.0.2",
     "vitest": "^4.1.0",
