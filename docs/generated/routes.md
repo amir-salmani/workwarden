@@ -9,7 +9,7 @@ status: active
 
 # Route surface
 
-41 routes.
+43 routes.
 
 | Method | Path |
 |---|---|
@@ -29,6 +29,7 @@ status: active
 | GET | `/attachments/:cipherId/:attachmentId` |
 | GET | `/favicon.ico` |
 | GET | `/icons/:domain/icon.png` |
+| GET | `/notifications/hub` |
 | GET | `/robots.txt` |
 | POST | `/api/accounts/claim` |
 | POST | `/api/accounts/prelogin` |
@@ -48,6 +49,7 @@ status: active
 | POST | `/identity/accounts/prelogin` |
 | POST | `/identity/accounts/prelogin/password` |
 | POST | `/identity/connect/token` |
+| POST | `/notifications/hub/negotiate` |
 | PUT | `/api/ciphers/:id` |
 | PUT | `/api/ciphers/:id/delete` |
 | PUT | `/api/ciphers/:id/restore` |

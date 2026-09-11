@@ -5,6 +5,7 @@ import type { App } from '../app.ts'
 import { requireUser } from '../auth/session.ts'
 import type { Sql } from '../db.ts'
 import { apiError, insensitive } from '../http.ts'
+import { Notification, push } from '../notify.ts'
 
 export const sends = new Hono<App>()
 sends.use('*', requireUser())
@@ -60,6 +61,7 @@ sends.post('/', async (c) => {
     ) returning id`
   const id = rows[0]?.id
   if (!id) return apiError(c, 'Could not create send', 500)
+  push(c, Notification.SyncSendCreate, { Id: id })
   return c.json(await detail(sql, c.get('user').id, id))
 })
 
@@ -83,12 +85,14 @@ sends.put('/:id', async (c) => {
     where id = ${id} and user_id = ${c.get('user').id}
     returning id`
   if (!rows[0]) return apiError(c, 'Send not found', 404)
+  push(c, Notification.SyncSendUpdate, { Id: id })
   return c.json(await detail(sql, c.get('user').id, id))
 })
 
 sends.delete('/:id', async (c) => {
   await c.get('sql')`
     delete from sends where id = ${c.req.param('id')} and user_id = ${c.get('user').id}`
+  push(c, Notification.SyncSendDelete, { Id: c.req.param('id') })
   return c.body(null, 200)
 })
 

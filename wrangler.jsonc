@@ -36,6 +36,13 @@
   // they reach us, so R2 holds ciphertext.
   "r2_buckets": [{ "binding": "ATTACHMENTS", "bucket_name": "workwarden-attachments" }],
 
+  // One hub per user, holding that user's open clients. SQLite backend because
+  // that is the only kind the free plan allows.
+  "durable_objects": {
+    "bindings": [{ "name": "NOTIFICATIONS", "class_name": "NotificationHub" }]
+  },
+  "migrations": [{ "tag": "v1", "new_sqlite_classes": ["NotificationHub"] }],
+
   "observability": {
     "enabled": true,
     "logs": { "invocation_logs": true, "head_sampling_rate": 1 }

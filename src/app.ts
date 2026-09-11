@@ -8,6 +8,7 @@ import { folders } from './routes/folders.ts'
 import { home } from './routes/home.ts'
 import { icons } from './routes/icons.ts'
 import { identity } from './routes/identity.ts'
+import { notifications } from './routes/notifications.ts'
 import { sendAccess } from './routes/send-access.ts'
 import { sends } from './routes/sends.ts'
 import { sync } from './routes/sync.ts'
@@ -37,6 +38,8 @@ export function createApp() {
   app.route('/attachments', attachments)
   // No auth: a site icon is public, and the client fetches these before unlock.
   app.route('/icons', icons)
+  app.use('/notifications/*', withDb())
+  app.route('/notifications', notifications)
   app.route('/identity', identity)
   return app
 }

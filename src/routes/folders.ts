@@ -4,6 +4,7 @@ import type { App } from '../app.ts'
 import { requireUser } from '../auth/session.ts'
 import type { Sql } from '../db.ts'
 import { apiError, insensitive } from '../http.ts'
+import { Notification, push } from '../notify.ts'
 
 export const folders = new Hono<App>()
 folders.use('*', requireUser())
@@ -19,6 +20,7 @@ folders.post('/', async (c) => {
     returning id`
   const id = rows[0]?.id
   if (!id) return apiError(c, 'Could not create folder', 500)
+  push(c, Notification.SyncFolderCreate, { Id: id })
   return c.json(await detail(c.get('sql'), c.get('user').id, id))
 })
 
@@ -31,6 +33,7 @@ folders.on(['PUT', 'POST'], '/:id', async (c) => {
     update folders set name = ${parsed.data.name}, revision_date = now()
     where id = ${id} and user_id = ${c.get('user').id} returning id`
   if (!rows[0]) return apiError(c, 'Folder not found', 404)
+  push(c, Notification.SyncFolderUpdate, { Id: id })
   return c.json(await detail(c.get('sql'), c.get('user').id, id))
 })
 
@@ -38,6 +41,7 @@ folders.on(['PUT', 'POST'], '/:id', async (c) => {
 folders.delete('/:id', async (c) => {
   await c.get('sql')`
     delete from folders where id = ${c.req.param('id')} and user_id = ${c.get('user').id}`
+  push(c, Notification.SyncFolderDelete, { Id: c.req.param('id') })
   return c.body(null, 200)
 })
 

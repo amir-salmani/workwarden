@@ -4,6 +4,7 @@
 type WorkwardenSecrets = {
   HYPERDRIVE: Hyperdrive
   ATTACHMENTS: R2Bucket
+  NOTIFICATIONS: DurableObjectNamespace<import('./notifications.ts').NotificationHub>
 
   AUTH_PEPPER: string
   JWT_SECRET: string
