@@ -13,8 +13,9 @@ to keep is its author's.
 
 A single-user, self-hosted Bitwarden-compatible server. Not a product, not a
 service, and not a drop-in replacement for a Bitwarden subscription. There is no
-signup, no billing, no support, and no promise of compatibility with any client
-version other than the ones tested here.
+billing, no support, and no promise of compatibility with any client version
+other than the ones tested here. Registration is closed: `SIGNUP_ALLOWLIST` names
+who may create an account, and unset means nobody.
 
 ## Read first
 

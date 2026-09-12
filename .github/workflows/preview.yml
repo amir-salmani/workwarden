@@ -1,7 +1,11 @@
 # Each pull request gets its own Neon branch and its own Hyperdrive config, and
-# is deployed to the separate workwarden-preview Worker, so a preview never
-# touches production data. preview-cleanup.yml removes the branch and config
-# when the PR closes.
+# is deployed to the separate workwarden-preview Worker. preview-cleanup.yml
+# removes the branch and config when the PR closes.
+#
+# A Neon branch is a copy-on-write clone of the default branch, so it arrives
+# holding production's rows. They are emptied before anything runs: a publicly
+# reachable Worker must not be serving a copy of the real vault, however
+# unreadable its ciphertext is.
 #
 # A deploy rather than `versions upload`: Cloudflare does not generate preview
 # URLs for a Worker with a Durable Object, which this has for live sync. There is
@@ -50,6 +54,20 @@ jobs:
 
       - name: Migrate the PR branch
         run: npm run migrate
+        env:
+          DATABASE_URL: ${{ steps.neon.outputs.uri }}
+
+      # The branch is cloned from production, so it starts with production's
+      # vaults in it. Nothing here should ever see them.
+      - name: Empty the cloned vaults
+        run: |
+          node -e '
+            const postgres = require("postgres")
+            const sql = postgres(process.env.DATABASE_URL)
+            sql`truncate users cascade`
+              .then(() => sql`select count(*)::int as n from users`)
+              .then((r) => { console.log(`users on the preview database: ${r[0].n}`); return sql.end() })
+          '
         env:
           DATABASE_URL: ${{ steps.neon.outputs.uri }}
 

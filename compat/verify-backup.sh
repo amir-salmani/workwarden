@@ -56,8 +56,16 @@ npx --no-install bw create item "$ITEM" >/dev/null
 echo "ok   built a vault with a real client"
 
 node "$root/scripts/export-vault.mjs" "$OUT/export" >/dev/null
-BACKUP="$(find "$OUT/export" -name '*.json.age' | head -1)"
-[ -n "$BACKUP" ] || { echo "FAIL no backup produced"; exit 1; }
+# Named for the vault, so pick this vault's: whatever else is on this database
+# also has a backup file, and restoring someone else's proves nothing.
+USER_ID="$(node -e '
+  const postgres = require("postgres")
+  const sql = postgres(process.env.DATABASE_URL)
+  sql`select id from users where email = ${process.argv[1]}`
+    .then((r) => { console.log(r[0]?.id ?? ""); return sql.end() })
+' "$EMAIL")"
+BACKUP="$OUT/export/$USER_ID.json.age"
+[ -n "$USER_ID" ] && [ -f "$BACKUP" ] || { echo "FAIL no backup for $EMAIL"; exit 1; }
 echo "ok   exported and encrypted"
 
 psql_do "delete from users where email = '$EMAIL'"
