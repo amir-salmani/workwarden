@@ -37,49 +37,45 @@ jobs:
       - name: Install age
         run: sudo apt-get install -y --no-install-recommends age
 
-      - name: Export and encrypt
-        run: node scripts/export-vault.mjs "$RUNNER_TEMP/backup"
-        env:
-          DATABASE_URL: ${{ secrets.NEON_DATABASE_URL }}
-          AGE_RECIPIENT: ${{ vars.AGE_RECIPIENT }}
-
-      # Belt and braces: refuse to publish anything that is not age ciphertext.
-      # The exporter writes one file per vault, so no files means no vaults --
-      # true on an empty server, and not a failure.
-      - name: Files are encrypted
-        id: check
-        run: |
-          shopt -s nullglob
-          files=("$RUNNER_TEMP"/backup/*.json.age)
-          for f in "${files[@]}"; do
-            head -c 21 "$f" | grep -q '^age-encryption.org/v1$' \
-              || { echo "$f is not age ciphertext"; exit 1; }
-          done
-          echo "count=${#files[@]}" >> "$GITHUB_OUTPUT"
-          echo "${#files[@]} encrypted file(s)"
-
-      - name: Publish to the backups repository
-        if: steps.check.outputs.count != '0'
+      # Cloned before the export runs, because the exporter reads the previous
+      # manifest from it and skips any vault whose contents have not moved.
+      - name: Clone the backups repository
         run: |
           mkdir -p ~/.ssh && chmod 700 ~/.ssh
           printf '%s\n' "$BACKUP_DEPLOY_KEY" > ~/.ssh/id_ed25519
           chmod 600 ~/.ssh/id_ed25519
           ssh-keyscan github.com >> ~/.ssh/known_hosts 2>/dev/null
-
           git clone --depth 1 git@github.com:amir-salmani/workwarden-backups.git "$RUNNER_TEMP/repo"
           mkdir -p "$RUNNER_TEMP/repo/vaults"
-          cp "$RUNNER_TEMP"/backup/*.json.age "$RUNNER_TEMP/repo/vaults/"
+        env:
+          BACKUP_DEPLOY_KEY: ${{ secrets.BACKUP_DEPLOY_KEY }}
 
+      - name: Export and encrypt
+        run: node scripts/export-vault.mjs "$RUNNER_TEMP/repo/vaults"
+        env:
+          DATABASE_URL: ${{ secrets.NEON_DATABASE_URL }}
+          AGE_RECIPIENT: ${{ vars.AGE_RECIPIENT }}
+
+      # Belt and braces: refuse to publish anything that is not age ciphertext.
+      - name: Files are encrypted
+        run: |
+          shopt -s nullglob
+          for f in "$RUNNER_TEMP"/repo/vaults/*.json.age; do
+            head -c 21 "$f" | grep -q '^age-encryption.org/v1$' \
+              || { echo "$f is not age ciphertext"; exit 1; }
+          done
+          echo "checked $(ls "$RUNNER_TEMP"/repo/vaults/*.json.age 2>/dev/null | wc -l) file(s)"
+
+      - name: Publish
+        run: |
           cd "$RUNNER_TEMP/repo"
           git config user.name  "Amir-Salmani"
           git config user.email "hi@amirsalmani.com"
           git add vaults
           if git diff --cached --quiet; then
-            echo "vaults unchanged since the last backup"
+            echo "no vault changed since the last backup; nothing to push"
           else
             git commit -m "Backup $(date -u +%Y-%m-%d)"
             git push
             echo "pushed"
           fi
-        env:
-          BACKUP_DEPLOY_KEY: ${{ secrets.BACKUP_DEPLOY_KEY }}

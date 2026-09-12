@@ -130,8 +130,19 @@ every password you own, readable. Write it to `/dev/shm`, import, `shred -u`.
 ## Part 6 — Where the file goes
 
 A private GitHub repository, `workwarden-backups`, written daily by
-`.github/workflows/backup.yml`. One age-encrypted file per vault; git history is
-the versioning.
+`.github/workflows/backup.yml`. One age-encrypted file per vault, named for the
+vault and overwritten in place; git history is the versioning.
+
+**A night that changed nothing writes nothing** (2026-09-12). The file used to
+carry the date in its name, so an idle vault still produced a new one every
+night — and age output differs on every run even for identical input, so nothing
+deduplicated it: roughly 330 MB of repository history a year for a vault nobody
+touched. `vaults/manifest.json` now records a SHA-256 of each export with its
+timestamp removed, and a vault whose digest has not moved is not re-encrypted.
+Growth follows what you actually change.
+
+The files written before that date keep their dated names. Nothing here deletes
+a backup, including one belonging to an account that no longer exists.
 
 Chosen 2026-09-11 over Hetzner object storage, which would have been a genuinely
 independent fourth provider but bills per bucket. GitHub is free and is neither

@@ -11,9 +11,18 @@
 //   2. age public-key encryption on top. CI has the recipient, not the identity,
 //      so a compromised workflow can write backups but cannot read one back.
 //
+// One file per vault, named for the vault and overwritten in place. The old
+// naming put the date in the filename, so an untouched vault still produced a
+// new file every night -- and age output differs on every run even for
+// identical input, so nothing deduplicated it. manifest.json records a digest
+// of each export with its timestamp removed, and a vault whose digest has not
+// moved is not rewritten. Previous versions live in the backup repository's
+// history, which is what a version is for.
+//
 //   AGE_RECIPIENT=age1... DATABASE_URL=postgres://... node scripts/export-vault.mjs out/
 import { execFileSync } from 'node:child_process'
-import { mkdirSync } from 'node:fs'
+import { createHash } from 'node:crypto'
+import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
 import postgres from 'postgres'
 
@@ -28,7 +37,29 @@ const rows = await sql`select user_id, email, export::text as body from vault_ex
 await sql.end()
 
 mkdirSync(outDir, { recursive: true })
-const stamp = new Date().toISOString().slice(0, 10)
+const manifestPath = join(outDir, 'manifest.json')
+
+/** Reads the previous run's digests; a missing or damaged file just means "all new". */
+const previous = (() => {
+  try {
+    return JSON.parse(readFileSync(manifestPath, 'utf8'))
+  } catch {
+    return {}
+  }
+})()
+const manifest = {}
+const now = new Date().toISOString()
+
+// The export carries the moment it was taken, which would make every night's
+// digest differ from the last. Everything else in it is the vault.
+function digestOf(body) {
+  const parsed = JSON.parse(body)
+  if (parsed.workwarden) delete parsed.workwarden.exportedAt
+  return createHash('sha256').update(JSON.stringify(parsed)).digest('hex')
+}
+
+let written = 0
+let unchanged = 0
 
 for (const row of rows) {
   const parsed = JSON.parse(row.body)
@@ -42,12 +73,31 @@ for (const row of rows) {
     }
   }
 
-  const file = join(outDir, `${stamp}-${row.user_id}.json.age`)
+  const digest = digestOf(row.body)
+  const file = join(outDir, `${row.user_id}.json.age`)
+  manifest[row.user_id] = {
+    digest,
+    items: parsed.items.length,
+    folders: parsed.folders.length,
+    updatedAt: previous[row.user_id]?.digest === digest ? previous[row.user_id].updatedAt : now,
+  }
+
+  if (previous[row.user_id]?.digest === digest && existsSync(file)) {
+    unchanged++
+    console.log(`ok   ${row.email}: unchanged since ${manifest[row.user_id].updatedAt}`)
+    continue
+  }
+
   execFileSync('age', ['--recipient', recipient, '--output', file], { input: row.body })
+  written++
   console.log(
     `ok   ${row.email}: ${parsed.items.length} items, ${parsed.folders.length} folders -> ${file}`,
   )
 }
 
+// Rewritten from the vaults that exist now, so a deleted account drops out of
+// the manifest. Its last backup file stays: nothing here deletes a backup.
+writeFileSync(manifestPath, `${JSON.stringify(manifest, null, 2)}\n`)
+
 if (rows.length === 0) console.log('no users to export')
-console.log(`exported ${rows.length} vault(s)`)
+console.log(`${written} vault(s) written, ${unchanged} unchanged`)
