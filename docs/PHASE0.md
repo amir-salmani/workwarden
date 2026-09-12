@@ -120,16 +120,27 @@ The [Workers limits page](https://developers.cloudflare.com/workers/platform/lim
 default on Paid. A third of these requests are over 10 ms and **not one has been
 killed for it**. `[reported]`
 
-Two explanations fit, and the evidence here does not choose between them: the
-account is on Workers Paid, or the Free limit is not enforced per-request the
-way the page states. Checking the plan settles it, and it matters — the 10 ms
-number is the sole reason the server-side KDF is a peppered 10k rather than
-something dearer ([FEASIBILITY.md §2.1](FEASIBILITY.md)). If the budget is
-really 30 s, that decision was made against a constraint that does not exist,
-and the server-side hash can afford to be much stronger.
+**The account is on the Free plan** (confirmed 2026-09-12), so the 10 ms figure
+is the one that applies. Which leaves the measurement itself in question, and
+the per-route breakdown says why:
 
-Nothing is being changed on the strength of one observation. Recorded so the
-next person to touch the KDF knows the constraint is in doubt.
+| route | median | p95 | max | n |
+|---|---|---|---|---|
+| `POST /api/ciphers` | 18 | 43 | 52 | 222 |
+| `POST /identity/connect/token` | 13 | 33 | 53 | 94 |
+| `GET /api/sync` | 11 | 25 | 34 | 87 |
+| `POST /identity/accounts/prelogin/password` | 3 | 19 | 19 | 13 |
+| `GET /api/config` | 7 | 13 | 14 | 55 |
+
+`GET /api/config` returns a fixed object and opens no connection. A handler that
+does nothing cannot spend 7 ms of CPU, so `cpuTimeMs` is counting something
+besides handler work — isolate startup being the obvious candidate. It also
+explains why the routes sit within a few milliseconds of each other while all
+reading above the limit.
+
+So the alarming reading is probably the wrong one, and the KDF decision stands
+until the metric is understood rather than because of it
+([ROADMAP.md](ROADMAP.md) §1).
 
 ## What Phase 0 is not
 

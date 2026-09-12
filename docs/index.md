@@ -14,6 +14,9 @@ tags: [workwarden]
 this repository is offered as a service or as advice for running someone else's
 credentials.
 
+[ROADMAP.md](ROADMAP.md) is the live one: what is open, what it waits on, and
+what was decided against. Everything below is the record behind it.
+
 Read in order. Each one answers a question the next one assumes.
 
 - [FEASIBILITY.md](FEASIBILITY.md) — *Can this be built on the Workers free
