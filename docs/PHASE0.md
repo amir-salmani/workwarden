@@ -4,7 +4,7 @@ title: Phase 0 — measuring real CPU on workerd
 description: How to get the numbers, and why the Worker cannot time itself.
 status: settled
 created: 2026-09-10
-timestamp: 2026-09-10
+timestamp: 2026-09-12
 tags: [workwarden, phase0, cpu, observability]
 related:
   - FEASIBILITY.md
@@ -102,6 +102,34 @@ Neither of these was answered by this round. Both stay open.
 - **Do stock clients verify the identity token's signature?** Decides whether
   HS256 can stay instead of Vaultwarden's RS256 ([STACK.md §6](STACK.md)).
   Needs a client that can complete a login, so it lands in Phase 1.
+
+## Production contradicts the 10 ms budget, 2026-09-12
+
+Measured from invocation logs over 24 hours of real use, 2,334 requests:
+
+| | |
+|---|---|
+| median CPU | 9 ms |
+| p95 | 35 ms |
+| max | 53 ms |
+| outcomes | 2,295 `ok`, 2 `exception`, 5 `canceled`, 32 `responseStreamDisconnected` |
+| **`exceededCpu`** | **0** |
+
+The [Workers limits page](https://developers.cloudflare.com/workers/platform/limits/)
+(read 2026-09-12) says 10 ms per HTTP request on the Free plan and 30 s by
+default on Paid. A third of these requests are over 10 ms and **not one has been
+killed for it**. `[reported]`
+
+Two explanations fit, and the evidence here does not choose between them: the
+account is on Workers Paid, or the Free limit is not enforced per-request the
+way the page states. Checking the plan settles it, and it matters — the 10 ms
+number is the sole reason the server-side KDF is a peppered 10k rather than
+something dearer ([FEASIBILITY.md §2.1](FEASIBILITY.md)). If the budget is
+really 30 s, that decision was made against a constraint that does not exist,
+and the server-side hash can afford to be much stronger.
+
+Nothing is being changed on the strength of one observation. Recorded so the
+next person to touch the KDF knows the constraint is in doubt.
 
 ## What Phase 0 is not
 
