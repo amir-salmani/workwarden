@@ -60,7 +60,7 @@ earned the job** (decided 2026-09-12). Not a date — a set of conditions:
 - [ ] one restore drill run by hand, from the backups repository, not by CI
 - [ ] every client in real use: desktop, browser extension, mobile
 
-The backup bundle ([backups/vaultwarden/](../backups/vaultwarden/)) has been
+The backup bundle ([backups/vaultwarden/](../../workwarden-backups/) — detached into its own project on 2026-09-13) has been
 booted and checked, so the fallback does not depend on that server surviving.
 
 ## Next
