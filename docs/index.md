@@ -13,6 +13,7 @@ project:
   owner: amir
   kind: tool
   lifecycle: frozen
+  flow: trunk
   visibility: private
   hosting: none
   toolchain: node
