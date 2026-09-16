@@ -14,7 +14,7 @@ project:
   kind: tool
   lifecycle: frozen
   flow: trunk
-  visibility: private
+  visibility: public
   hosting: none
   toolchain: node
 ---
