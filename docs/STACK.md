@@ -12,6 +12,8 @@ related:
   - PHASE0.md
 ---
 
+> 2026-11-15: Hyperdrive, Neon, postgres.js and both Durable Objects are gone — [SHAVE.md](SHAVE.md). The rest of this record still holds.
+
 # workwarden — tech stack
 
 Follows [FEASIBILITY.md](FEASIBILITY.md) (go / no-go) and

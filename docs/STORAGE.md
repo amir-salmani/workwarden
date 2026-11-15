@@ -2,7 +2,7 @@
 type: Decision Record
 title: Where the workwarden vault lives
 description: D1 or external Postgres — decided on the exit path, not on capacity.
-status: settled
+status: superseded
 created: 2026-08-30
 timestamp: 2026-08-30
 tags: [workwarden, storage, d1, postgres, neon]
@@ -10,6 +10,8 @@ related:
   - FEASIBILITY.md
   - STACK.md
 ---
+
+> Superseded 2026-11-15 by [SHAVE.md](SHAVE.md): the vault lives in D1. Kept as the record of why Postgres was chosen first.
 
 # Where the vault actually lives
 

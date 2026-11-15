@@ -38,16 +38,9 @@ jobs:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
 
-      # Hyperdrive caching lives on the Cloudflare config, not in this repo, so
-      # nothing here would notice it being turned back on. It must stay off: a
-      # cached read once made a freshly registered user unable to log in, and
-      # would keep a revoked session alive past its revocation.
-
       - uses: cloudflare/wrangler-action@ebbaa1584979971c8614a24965b4405ff95890e0 # v4.0.0
         with:
           apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
           command: deploy
 
-      # Proves the Worker, the Hyperdrive config and Neon are wired to each
-      # other. Creates a real account, syncs a real cipher, deletes both.

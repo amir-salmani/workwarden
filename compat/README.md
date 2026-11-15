@@ -68,7 +68,7 @@ present, so they move together or not at all. V2 accounts are not implemented.
 Driving the deployed preview turned up a bug no unit test could reach, because
 it lives in Cloudflare's configuration rather than in this repo.
 
-**Hyperdrive caches read queries by default.** Registration asks "does this user
+**(History — Hyperdrive is gone since 2026-11-15.) Hyperdrive caches read queries by default.** Registration asks "does this user
 exist?", gets an empty result, and Hyperdrive caches it. Login runs the identical
 `select * from users where email = …` and is served the cached empty row — so a
 freshly registered user gets `invalid_grant` until the TTL expires. Waiting it

@@ -2,7 +2,7 @@
 type: Guide
 title: Moving a vault from Vaultwarden to workwarden
 description: The rehearsed procedure, and the parts only the vault's owner can do.
-status: settled
+status: superseded
 created: 2026-09-11
 timestamp: 2026-09-12
 tags: [workwarden, migration, vaultwarden]
@@ -10,6 +10,8 @@ related:
   - BACKUP.md
   - FEASIBILITY.md
 ---
+
+> Superseded 2026-11-15: the claim flow this describes no longer exists. The cutover from Vaultwarden is a client-side `bw import` of a Vaultwarden export into the one registered account — [SHAVE.md](SHAVE.md).
 
 # Moving a vault from Vaultwarden
 

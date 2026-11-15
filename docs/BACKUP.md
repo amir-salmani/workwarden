@@ -12,6 +12,8 @@ related:
   - STACK.md
 ---
 
+> 2026-11-15: the export now lands in R2 nightly, written by a cron trigger in the Worker and age-encrypted there (`src/snapshot.ts`); restore is `scripts/restore.mjs`. The format and the reasoning below are unchanged. Neon no longer exists.
+
 # The backup
 
 [FEASIBILITY.md §2.4](FEASIBILITY.md) makes this non-negotiable: an automated

@@ -1,5 +1,5 @@
 # Copy to .dev.vars (gitignored). Real values are not in this repo.
 AUTH_PEPPER=
 JWT_SECRET=
-# Who may register: whole addresses or @domain, comma-separated. Empty = nobody.
-SIGNUP_ALLOWLIST=
+# OWNER_EMAIL and AGE_RECIPIENT are vars in wrangler.jsonc; override for a dev
+# run with `wrangler dev --var OWNER_EMAIL:you@example.com`.

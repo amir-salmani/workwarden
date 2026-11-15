@@ -1,34 +1,29 @@
 # workwarden
 
-A Bitwarden-client-compatible server on Cloudflare Workers — *worker* of
-Cloudflare, *warden* of Bitwarden. Serving `vault.amirsalmani.com`.
+A Bitwarden-client-compatible server on Cloudflare Workers, for one person —
+*worker* of Cloudflare, *warden* of Bitwarden.
 
-**For personal use only.** This runs one person's vault at
-`vault.amirsalmani.com`. It is not a multi-tenant service, it has not been
-audited, and it is not offered for anyone else to rely on. Self-host it if you
-like the approach, but do so understanding that the only vault it has ever had
-to keep is its author's.
+**For personal use only.** One account, the author's. Not a multi-tenant
+service, not audited, not offered for anyone else to rely on. Self-host it if
+you like the approach, knowing that the only vault it has ever kept is its
+author's.
 
-## Scope
+## What it is
 
-A single-user, self-hosted Bitwarden-compatible server. Not a product, not a
-service, and not a drop-in replacement for a Bitwarden subscription. There is no
-billing, no support, and no promise of compatibility with any client version
-other than the ones tested here. Registration is closed: `SIGNUP_ALLOWLIST` names
-who may create an account, and unset means nobody.
+- One Worker, one D1 database, one R2 bucket. All on the free plan.
+- The Bitwarden clients are the UI: browser extension, mobile and desktop apps,
+  `bw`, `rbw`. There is no web vault, on purpose: whoever serves a web vault's
+  JavaScript can ship a version that steals the master password.
+- 28 routes ([`docs/generated/routes.md`](docs/generated/routes.md)): login,
+  sync, ciphers, folders, password change, key rotation. No organizations,
+  Sends, attachments, emergency access, server-side 2FA, SSO or email.
+- Registration is closed: `OWNER_EMAIL` names the one address that may
+  register, once.
+- Nightly, a cron trigger writes an age-encrypted export to R2. The Worker holds
+  the recipient only. [`docs/BACKUP.md`](docs/BACKUP.md).
 
-## Read first
-
-[`docs/`](docs/index.md) holds the decisions taken before any code:
-[feasibility](docs/FEASIBILITY.md), [storage](docs/STORAGE.md),
-[stack](docs/STACK.md). Two of them are expensive to reverse later — the
-server-side KDF cost, and how `/sync` is served.
-
-The short version: two mature projects already do "Vaultwarden on Workers."
-Neither publishes a threat model or a client-compatibility test suite, and that
-gap is the project. Organizations were the third gap until this vault's were
-deliberately flattened into folders ([FLATTENING.md](docs/FLATTENING.md)) —
-one person does not need a second key hierarchy.
+The decisions behind the shape are in [`docs/SHAVE.md`](docs/SHAVE.md); the
+history that led there is in [`docs/`](docs/index.md).
 
 ## Develop
 
@@ -36,44 +31,59 @@ one person does not need a second key hierarchy.
 npm ci
 cp .dev.vars.example .dev.vars     # fill in; never committed
 git config core.hooksPath .githooks
+npm run migrate                    # local D1
 npm run dev
 ```
 
-`npm test` runs in `workerd` via vitest-pool-workers, not in Node. `npm run
-routes` rewrites the route table and `npm run routes:check` fails when it drifts
-from the app.
+`npm test` runs in `workerd` via vitest-pool-workers against a local D1 with
+the migrations applied. `npm run routes:check` fails when the route table
+drifts from the app.
 
-## Reproduce the measurements
+`compat/run.sh` drives a stock `@bitwarden/cli` against a running server —
+register, login, create, sync, decrypt, folders, edit, trash, restore. Unit
+tests assert the shape we chose; this asserts a real client agrees.
+
+## Deploy
+
+From a laptop that can `wrangler login`, with `CLOUDFLARE_ACCOUNT_ID` set:
 
 ```
-node bench/limits.mjs
+npm run migrate:remote
+npx wrangler secret put AUTH_PEPPER     # generate, store in the vault first
+npx wrangler secret put JWT_SECRET
+npx wrangler deploy
 ```
 
-Prints the CPU cost of the server-side password hash and of `/api/sync`
-serialization against the 10 ms free-plan budget.
+Losing `AUTH_PEPPER` makes every stored password hash unverifiable; the fix is
+re-registering, nothing worse. Rotating `JWT_SECRET` logs every client out.
+
+The Worker serves on `workers.dev`. It must not be bound to a custom hostname
+that something else still answers on — that is how this project was frozen
+once.
+
+## Restore
+
+```
+node scripts/restore.mjs <snapshot.json.age> <identity-file> --remote
+```
+
+Into an empty database, on a Worker with the same `AUTH_PEPPER`.
 
 ## Stated limitations
 
 A password manager should say these out loud rather than bury them.
 
-- **Cloudflare can read what it executes.** The zero-knowledge model means it
-  sees ciphertext only — but whoever controls the deployment controls the code.
-  The web vault is deliberately not shipped for this reason
-  ([STACK.md §2.5](docs/STACK.md)); use native clients and the browser extension,
-  which ship their own code.
-- **CI can deploy modified server code.** The Cloudflare API token lives in
-  GitHub Secrets. Not fully closable while CI deploys.
-- **There is no email.** Nothing here can send one, so an emergency-access
-  invite only reaches someone who already has an account on this server, and a
-  grantor learns that recovery started by opening a client, not from an inbox.
+- **Cloudflare can read what it executes.** It sees ciphertext only — but
+  whoever controls the deployment controls the code. Use clients that ship
+  their own code.
 - **Nobody has audited this.** Bitwarden is audited annually and Vaultwarden
   twice in 2024 — one of those found an authentication bypass in code far more
-  reviewed than this. [ASSURANCE.md](docs/ASSURANCE.md) sets out what that means
-  and what is done instead.
-- **The hosting account carries sanctions risk.**
-  [FEASIBILITY.md §1.7](docs/FEASIBILITY.md). Storage lives outside Cloudflare so
-  a suspension costs the compute, not the vault — but never make this the only
-  copy.
+  reviewed than this. [ASSURANCE.md](docs/ASSURANCE.md).
+- **One account, one hosting account.** A suspended Cloudflare account costs
+  the compute and the live database; the nightly snapshot in R2 is on the same
+  account. Keep a copy elsewhere.
+- **No live push.** Clients learn of changes when they sync, not the instant
+  another device saves.
 
 ## License
 
