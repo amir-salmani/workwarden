@@ -9,7 +9,7 @@ status: active
 
 # Route surface
 
-28 routes.
+29 routes.
 
 | Method | Path |
 |---|---|
@@ -24,6 +24,7 @@ status: active
 | GET | `/favicon.ico` |
 | GET | `/robots.txt` |
 | POST | `/api/accounts/key` |
+| POST | `/api/accounts/key-management/user-key-id` |
 | POST | `/api/accounts/password` |
 | POST | `/api/accounts/prelogin` |
 | POST | `/api/accounts/register` |

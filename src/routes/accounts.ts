@@ -183,6 +183,23 @@ accounts.post('/key', requireUser(), async (c) => {
   return c.body(null, 200)
 })
 
+/**
+ * The id of the user's current user key, recorded by clients from 2026.10 and
+ * handed back in the login response so they stop asking.
+ */
+const userKeyId = z.object({ userKeyId: z.string().min(1) })
+
+accounts.post('/key-management/user-key-id', requireUser(), async (c) => {
+  const parsed = userKeyId.safeParse(insensitive(await c.req.json()))
+  if (!parsed.success) return apiError(c, 'User key id is required')
+  await c
+    .get('db')
+    .prepare('update users set user_key_id = ? where id = ?')
+    .bind(parsed.data.userKeyId, c.get('user').id)
+    .run()
+  return c.body(null, 200)
+})
+
 accounts.get('/profile', requireUser(), (c) => c.json(profile(c.get('user'))))
 
 accounts.get('/revision-date', requireUser(), (c) =>

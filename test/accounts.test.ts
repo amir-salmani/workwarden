@@ -41,6 +41,25 @@ it('gives an unknown email the default KDF rather than an error', async () => {
   expect(await res.json()).toMatchObject({ kdf: 0, kdfIterations: 600000 })
 })
 
+it('records the user key id and hands it back on the next login', async () => {
+  await register()
+  const auth = await authHeaders()
+  const first = (await (await login()).json()) as {
+    userDecryptionOptions: { userKeyId: string | null }
+  }
+  expect(first.userDecryptionOptions.userKeyId).toBeNull()
+
+  const res = await SELF.fetch(`${ORIGIN}/api/accounts/key-management/user-key-id`, {
+    method: 'POST',
+    headers: { ...auth, 'content-type': 'application/json' },
+    body: JSON.stringify({ userKeyId: 'key-id-1' }),
+  })
+  expect(res.status).toBe(200)
+
+  const next = (await (await login()).json()) as { userDecryptionOptions: { userKeyId: string } }
+  expect(next.userDecryptionOptions.userKeyId).toBe('key-id-1')
+})
+
 it('answers prelogin in both the pre- and post-2026.10 client shapes', async () => {
   await register()
   const res = await SELF.fetch(`${ORIGIN}/identity/accounts/prelogin/password`, {

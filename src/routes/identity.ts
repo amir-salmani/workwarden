@@ -199,6 +199,8 @@ function decryptionOptions(user: User) {
       masterKeyWrappedUserKey: user.akey,
       salt: user.email,
     },
+    UserKeyId: user.user_key_id,
+    userKeyId: user.user_key_id,
     Object: 'userDecryptionOptions',
     object: 'userDecryptionOptions',
   }

@@ -15,6 +15,7 @@ export type User = {
   private_key: string | null
   public_key: string | null
   security_stamp: string
+  user_key_id: string | null
   created_at: string
   revision_date: string
 }
