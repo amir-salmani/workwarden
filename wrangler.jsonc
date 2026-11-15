@@ -6,8 +6,10 @@
   // run with ERR_FUTURE_COMPATIBILITY_DATE. Raise it when wrangler updates.
   "compatibility_date": "2026-08-15",
 
-  // workers.dev only. vault.amirsalmani.com is the live Vaultwarden until the
-  // cutover; nothing in this file may name that host before then.
+  // Cut over 2026-11-15: Vaultwarden on rhinocloud-de-1 is retired and this
+  // Worker answers on the vault hostname. custom_domain makes wrangler own the
+  // DNS record and the certificate.
+  "routes": [{ "pattern": "vault.amirsalmani.com", "custom_domain": true }],
   "workers_dev": true,
   "preview_urls": false,
 
