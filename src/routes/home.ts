@@ -7,7 +7,7 @@ export const home = new Hono<App>()
 // vault: FEASIBILITY.md §2.3 -- whoever serves the vault's JavaScript can
 // exfiltrate the master password, and not serving it removes that hole rather
 // than mitigating it. Do not grow this page into a login form.
-const PAGE = `<!doctype html>
+const page = (origin: string) => `<!doctype html>
 <html lang="en">
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
@@ -39,13 +39,13 @@ server does not serve one. Use a client that ships its own code:</p>
 </ul>
 
 <p>Point it at this server by setting the self-hosted environment URL to
-<code>https://vault.amirsalmani.com</code> before logging in.</p>
+<code>${origin}</code> before logging in.</p>
 
 <p><a href="https://github.com/amir-salmani/workwarden">Source, threat model and
 stated limitations</a>.</p>
 `
 
-home.get('/', (c) => c.html(PAGE))
+home.get('/', (c) => c.html(page(new URL(c.req.url).origin)))
 
 // Browsers ask for these; answering keeps the log readable.
 home.get('/favicon.ico', (c) => c.body(null, 204))
