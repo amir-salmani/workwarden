@@ -3,13 +3,11 @@
 // Cloudflare.Env that `cloudflare:test` uses, so there is one source of truth.
 type WorkwardenSecrets = {
   HYPERDRIVE: Hyperdrive
-  ATTACHMENTS: R2Bucket
-  NOTIFICATIONS: DurableObjectNamespace<import('./notifications.ts').NotificationHub>
-  THROTTLE: DurableObjectNamespace<import('./throttle-object.ts').Throttle>
 
   AUTH_PEPPER: string
   JWT_SECRET: string
-  SIGNUP_ALLOWLIST: string
+  // The one address allowed to register, once. Config, not a secret.
+  OWNER_EMAIL: string
 }
 
 interface Env extends WorkwardenSecrets {}

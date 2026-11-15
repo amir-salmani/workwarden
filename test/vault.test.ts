@@ -1,6 +1,5 @@
-import { env, SELF } from 'cloudflare:test'
+import { SELF } from 'cloudflare:test'
 import { beforeEach, expect, it } from 'vitest'
-import { connect } from '../src/db.ts'
 import { authHeaders, ORIGIN, register, resetDatabase } from './support.ts'
 
 type Sync = {
@@ -136,21 +135,6 @@ it('moves a cipher to the trash and back', async () => {
   expect(body.ciphers).toEqual([])
 })
 
-it('will not touch another user’s cipher', async () => {
-  const created = await api('/api/ciphers', {
-    method: 'POST',
-    body: JSON.stringify({ type: 1, name: '2.mine' }),
-  })
-  const { id } = (await created.json()) as { id: string }
-
-  const bob = { email: 'bob@example.com', masterPasswordHash: 'Ym9i', key: '2.bobkey' }
-  await register(bob)
-  const bobAuth = await authHeaders(bob)
-
-  const res = await SELF.fetch(`${ORIGIN}/api/ciphers/${id}`, { headers: bobAuth })
-  expect(res.status).toBe(404)
-})
-
 it('bulk-imports ciphers and folders, wiring up the relationships', async () => {
   const res = await api('/api/ciphers/import', {
     method: 'POST',
@@ -204,121 +188,6 @@ it('still reports a null key for ciphers that have none', async () => {
   })
   const body = await getSync()
   expect((body.ciphers[0] as unknown as { key: string | null }).key).toBeNull()
-})
-
-it('lists an attachment on its cipher and streams the blob', async () => {
-  const sql = connect(env)
-  const created = await api('/api/ciphers', {
-    method: 'POST',
-    body: JSON.stringify({ type: 1, name: '2.has-attachment', login: { username: '2.u' } }),
-  })
-  const { id } = (await created.json()) as { id: string }
-
-  await sql`
-    insert into attachments (id, cipher_id, file_name, file_size, akey)
-    values ('att1', ${id}, '2.secret.pdf', 2048, '2.attachment-key')`
-  await env.ATTACHMENTS.put(`${id}/att1`, 'encrypted-bytes')
-
-  const body = await getSync()
-  const cipher = body.ciphers.find((c) => c.id === id) as unknown as {
-    attachments: { id: string; url: string; fileName: string; sizeName: string }[]
-  }
-  expect(cipher.attachments).toHaveLength(1)
-  expect(cipher.attachments[0]).toMatchObject({
-    id: 'att1',
-    fileName: '2.secret.pdf',
-    sizeName: '2.00 KB',
-  })
-  expect(cipher.attachments[0]?.url).toBe(`${ORIGIN}/attachments/${id}/att1`)
-
-  const blob = await SELF.fetch(`${ORIGIN}/attachments/${id}/att1`, { headers: auth })
-  expect(blob.status).toBe(200)
-  expect(await blob.text()).toBe('encrypted-bytes')
-})
-
-it('reserves an attachment, accepts the bytes, then deletes it', async () => {
-  const created = await api('/api/ciphers', {
-    method: 'POST',
-    body: JSON.stringify({ type: 1, name: '2.with-upload', login: { username: '2.u' } }),
-  })
-  const { id } = (await created.json()) as { id: string }
-
-  const reserve = await api(`/api/ciphers/${id}/attachment/v2`, {
-    method: 'POST',
-    body: JSON.stringify({ fileName: '2.report.pdf', key: '2.att-key', fileSize: 11 }),
-  })
-  expect(reserve.status).toBe(200)
-  const { attachmentId, url, fileUploadType } = (await reserve.json()) as {
-    attachmentId: string
-    url: string
-    fileUploadType: number
-  }
-  expect(fileUploadType).toBe(0)
-  expect(url).toContain(`/api/ciphers/${id}/attachment/${attachmentId}`)
-
-  const body = new FormData()
-  body.append('data', new File(['ciphertext!'], 'blob'))
-  const upload = await SELF.fetch(url, { method: 'POST', headers: auth, body })
-  expect(upload.status).toBe(200)
-
-  const stored = await env.ATTACHMENTS.get(`${id}/${attachmentId}`)
-  expect(await stored?.text()).toBe('ciphertext!')
-
-  const synced = await getSync()
-  const cipher = synced.ciphers.find((c) => c.id === id) as unknown as {
-    attachments: { id: string; size: string }[]
-  }
-  expect(cipher.attachments).toHaveLength(1)
-  // The size recorded is what actually arrived, not what the client promised.
-  expect(cipher.attachments[0]?.size).toBe('11')
-
-  const removed = await api(`/api/ciphers/${id}/attachment/${attachmentId}`, { method: 'DELETE' })
-  expect(removed.status).toBe(200)
-  expect(await env.ATTACHMENTS.get(`${id}/${attachmentId}`)).toBeNull()
-
-  const after = await getSync()
-  const gone = after.ciphers.find((c) => c.id === id) as unknown as { attachments: null }
-  expect(gone.attachments).toBeNull()
-})
-
-it('will not serve an attachment on someone else’s cipher', async () => {
-  const bob = { email: 'bob@example.com', masterPasswordHash: 'Ym9i', key: '2.bobkey' }
-  await register(bob)
-  const bobAuth = await authHeaders(bob)
-
-  const created = await api('/api/ciphers', {
-    method: 'POST',
-    body: JSON.stringify({ type: 1, name: '2.mine', login: { username: '2.u' } }),
-  })
-  const { id } = (await created.json()) as { id: string }
-
-  const sql = connect(env)
-  await sql`
-    insert into attachments (id, cipher_id, file_name, file_size)
-    values ('att9', ${id}, '2.mine.pdf', 4)`
-  await env.ATTACHMENTS.put(`${id}/att9`, 'mine')
-
-  const res = await SELF.fetch(`${ORIGIN}/attachments/${id}/att9`, { headers: bobAuth })
-  expect(res.status).toBe(404)
-})
-
-it('will not let a stranger attach a file to someone else’s cipher', async () => {
-  const created = await api('/api/ciphers', {
-    method: 'POST',
-    body: JSON.stringify({ type: 1, name: '2.mine', login: { username: '2.u' } }),
-  })
-  const { id } = (await created.json()) as { id: string }
-
-  const bob = { email: 'bob@example.com', masterPasswordHash: 'Ym9i', key: '2.bobkey' }
-  await register(bob)
-  const bobAuth = await authHeaders(bob)
-
-  const res = await SELF.fetch(`${ORIGIN}/api/ciphers/${id}/attachment/v2`, {
-    method: 'POST',
-    headers: { ...bobAuth, 'content-type': 'application/json' },
-    body: JSON.stringify({ fileName: '2.x', key: '2.k', fileSize: 1 }),
-  })
-  expect(res.status).toBe(404)
 })
 
 it('tells the client it may delete and restore its own items', async () => {

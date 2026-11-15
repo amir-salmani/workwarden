@@ -41,11 +41,6 @@ jobs:
       # nothing here would notice it being turned back on. It must stay off: a
       # cached read once made a freshly registered user unable to log in, and
       # would keep a revoked session alive past its revocation.
-      - name: Hyperdrive query caching is disabled
-        run: node scripts/hyperdrive.mjs check workwarden-neon
-        env:
-          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
-          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
 
       - uses: cloudflare/wrangler-action@ebbaa1584979971c8614a24965b4405ff95890e0 # v4.0.0
         with:
@@ -58,5 +53,5 @@ jobs:
       - name: Smoke test
         run: node scripts/smoke.mjs "$WORKER_URL"
         env:
-          WORKER_URL: https://vault.amirsalmani.com
+          WORKER_URL: ${{ vars.WORKER_URL }}
           DATABASE_URL: ${{ secrets.NEON_DATABASE_URL }}

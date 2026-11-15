@@ -1,7 +1,5 @@
-import { env, SELF } from 'cloudflare:test'
+import { SELF } from 'cloudflare:test'
 import { beforeEach, expect, it } from 'vitest'
-import { randomSalt } from '../src/auth/kdf.ts'
-import { connect } from '../src/db.ts'
 import { signupAllowed } from '../src/routes/accounts.ts'
 import { ALICE, authHeaders, login, ORIGIN, register, resetDatabase } from './support.ts'
 
@@ -48,7 +46,7 @@ it('accepts the capitalised field names older clients send', async () => {
     method: 'POST',
     headers: { 'content-type': 'application/json' },
     body: JSON.stringify({
-      Email: 'bob@example.com',
+      Email: ALICE.email,
       MasterPasswordHash: 'aGFzaA==',
       Key: '2.key',
       Kdf: 0,
@@ -84,57 +82,10 @@ it('serves a page at the root that is not a login form', async () => {
   expect(html).not.toContain('<script')
 })
 
-it('refuses to log in to an imported account until it is claimed, then allows it', async () => {
-  const sql = connect(env)
-  const salt = randomSalt()
-  await sql`
-    insert into users (email, name, password_hash, salt, akey, claim_token)
-    values ('imported@example.com', 'Imported', null, ${salt}, '2.key', 'claim-token-long-enough')`
-
-  const before = await login({ ...ALICE, email: 'imported@example.com' })
-  expect(before.status).toBe(400)
-
-  const claim = await SELF.fetch(`${ORIGIN}/api/accounts/claim`, {
-    method: 'POST',
-    headers: { 'content-type': 'application/json' },
-    body: JSON.stringify({
-      email: 'imported@example.com',
-      token: 'claim-token-long-enough',
-      masterPasswordHash: ALICE.masterPasswordHash,
-    }),
-  })
-  expect(claim.status).toBe(200)
-
-  const after = await login({ ...ALICE, email: 'imported@example.com' })
-  expect(after.status).toBe(200)
-})
-
-it('refuses a wrong claim token, and a replayed one', async () => {
-  const sql = connect(env)
-  await sql`
-    insert into users (email, password_hash, salt, akey, claim_token)
-    values ('replay@example.com', null, ${randomSalt()}, '2.key', 'the-real-claim-token')`
-
-  const claimWith = (token: string) =>
-    SELF.fetch(`${ORIGIN}/api/accounts/claim`, {
-      method: 'POST',
-      headers: { 'content-type': 'application/json' },
-      body: JSON.stringify({
-        email: 'replay@example.com',
-        token,
-        masterPasswordHash: ALICE.masterPasswordHash,
-      }),
-    })
-
-  expect((await claimWith('the-wrong-claim-tokn')).status).toBe(400)
-  expect((await claimWith('the-real-claim-token')).status).toBe(200)
-  expect((await claimWith('the-real-claim-token')).status).toBe(400)
-})
-
 it('changes the master password and logs other devices out', async () => {
   await register()
   const auth = await authHeaders()
-  const before = await login(ALICE, '10.1.0.1')
+  const before = await login(ALICE)
   expect(before.status).toBe(200)
 
   const res = await SELF.fetch(`${ORIGIN}/api/accounts/password`, {
@@ -149,8 +100,8 @@ it('changes the master password and logs other devices out', async () => {
   expect(res.status).toBe(200)
 
   // The old password stops working, the new one starts.
-  expect((await login(ALICE, '10.1.0.2')).status).toBe(400)
-  const after = await login({ ...ALICE, masterPasswordHash: 'bmV3LWhhc2g=' }, '10.1.0.3')
+  expect((await login(ALICE)).status).toBe(400)
+  const after = await login({ ...ALICE, masterPasswordHash: 'bmV3LWhhc2g=' })
   expect(after.status).toBe(200)
   expect(((await after.json()) as { Key: string }).Key).toBe('2.rewrapped-user-key')
 
@@ -171,7 +122,7 @@ it('refuses a password change that does not prove the current password', async (
     }),
   })
   expect(res.status).toBe(400)
-  expect((await login(ALICE, '10.1.0.4')).status).toBe(200)
+  expect((await login(ALICE)).status).toBe(200)
 })
 
 it('rotates the account key and every item with it, in one transaction', async () => {
@@ -200,13 +151,12 @@ it('rotates the account key and every item with it, in one transaction', async (
       key: '2.rotated-user-key',
       ciphers: [{ id, type: 1, name: '2.new-wrapping', login: { username: '2.u2' } }],
       folders: [{ id: folderId, name: '2.new-folder' }],
-      sends: [],
     }),
   })
   expect(res.status).toBe(200)
 
   // The stamp rotated, so a fresh login is needed to see the result.
-  const fresh = await login(ALICE, '10.1.0.5')
+  const fresh = await login(ALICE)
   const { access_token } = (await fresh.json()) as { access_token: string }
   const sync = (await (
     await SELF.fetch(`${ORIGIN}/api/sync`, { headers: { Authorization: `Bearer ${access_token}` } })
@@ -220,7 +170,7 @@ it('rotates the account key and every item with it, in one transaction', async (
   expect(sync.folders[0]?.name).toBe('2.new-folder')
 })
 
-it('turns away an address that is not on the signup allowlist', async () => {
+it('turns away every address but the owner', async () => {
   const stranger = await SELF.fetch(`${ORIGIN}/api/accounts/register`, {
     method: 'POST',
     headers: { 'content-type': 'application/json' },
@@ -236,10 +186,9 @@ it('turns away an address that is not on the signup allowlist', async () => {
   expect(await stranger.json()).toMatchObject({ message: 'Registration is closed on this server' })
 })
 
-it('reads the allowlist as whole addresses or @domain, and closed when empty', () => {
-  expect(signupAllowed('@example.com', 'alice@example.com')).toBe(true)
-  expect(signupAllowed('@example.com', 'alice@example.com.attacker.test')).toBe(false)
-  expect(signupAllowed(' Alice@Example.com , @other.test ', 'alice@example.com')).toBe(true)
+it('reads the owner address case-insensitively, and closed when unset', () => {
+  expect(signupAllowed('Alice@Example.com', 'alice@example.com')).toBe(true)
+  expect(signupAllowed(' alice@example.com ', 'alice@example.com')).toBe(true)
   expect(signupAllowed('alice@example.com', 'bob@example.com')).toBe(false)
   expect(signupAllowed('', 'alice@example.com')).toBe(false)
   expect(signupAllowed(undefined, 'alice@example.com')).toBe(false)

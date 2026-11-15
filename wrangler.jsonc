@@ -5,94 +5,32 @@
   // Capped by the workerd bundled with miniflare; a later date fails the test
   // run with ERR_FUTURE_COMPATIBILITY_DATE. Raise it when wrangler updates.
   "compatibility_date": "2026-08-15",
-  // postgres.js needs it (STACK.md §2.2); harmless until Phase 1.
+  // postgres.js needs it; goes with Hyperdrive when D1 lands.
   "compatibility_flags": ["nodejs_compat"],
 
-  // custom_domain makes wrangler create the DNS record and the certificate.
-  // The zone is already on Cloudflare, so there is nothing to point at it.
-  "routes": [{ "pattern": "vault.amirsalmani.com", "custom_domain": true }],
-
-  // One public hostname. Preview URLs are no use here anyway: Cloudflare does
-  // not generate them for a Worker with a Durable Object, which this has for
-  // live sync. PRs deploy to the separate workwarden-preview Worker instead.
-  "workers_dev": false,
+  // workers.dev only. vault.amirsalmani.com is the live Vaultwarden until the
+  // cutover; nothing in this file may name that host before then.
+  "workers_dev": true,
   "preview_urls": false,
-  // cpuTime is only readable from invocation logs -- workerd freezes clocks
-  // inside the isolate, so Phase 0 cannot time itself. See docs/PHASE0.md.
-  // Neon project flat-heart-18148850, branch production, eu-central-1.
-  // localConnectionString is what dev and tests use; the id is never touched
-  // locally.
+
+  // Neon via Hyperdrive, until D1. localConnectionString is what dev and tests
+  // use; the id is never touched locally.
   "hyperdrive": [
     {
       "binding": "HYPERDRIVE",
       "id": "eace91137a9649659e5fcd5011063257",
-      // Query caching is off, but it is NOT set here -- wrangler rejects a
-      // "caching" key in this file. It lives on the Hyperdrive config:
-      //   wrangler hyperdrive update <id> --caching-disabled
       "localConnectionString": "postgresql://postgres:dev@127.0.0.1:5432/workwarden"
     }
   ],
-  // Who may register. A whole address or @domain, comma-separated; unset means
-  // nobody, so a missing value fails closed. This is config, not a secret: the
-  // only address on it is CI's, and .invalid can never receive mail. To allow a
-  // real address without publishing it, delete this line and set a Worker
-  // secret of the same name instead -- one or the other, never both.
-  "vars": { "SIGNUP_ALLOWLIST": "smoke@workwarden.invalid" },
 
-  // Attachment blobs. Already encrypted with the attachment's own key before
-  // they reach us, so R2 holds ciphertext.
-  "r2_buckets": [{ "binding": "ATTACHMENTS", "bucket_name": "workwarden-attachments" }],
-
-  // One hub per user, holding that user's open clients. SQLite backend because
-  // that is the only kind the free plan allows.
-  "durable_objects": {
-    "bindings": [
-      { "name": "NOTIFICATIONS", "class_name": "NotificationHub" },
-      { "name": "THROTTLE", "class_name": "Throttle" }
-    ]
-  },
-  "migrations": [
-    { "tag": "v1", "new_sqlite_classes": ["NotificationHub"] },
-    { "tag": "v2", "new_sqlite_classes": ["Throttle"] }
-  ],
+  // The one address that may register, once. Config, not a secret.
+  "vars": { "OWNER_EMAIL": "hi@amirsalmani.com" },
 
   "observability": {
     "enabled": true,
     "logs": { "invocation_logs": true, "head_sampling_rate": 1 }
-  },
+  }
 
   // account_id is deliberately absent: this repo is public.
   // Set CLOUDFLARE_ACCOUNT_ID in the environment instead.
-
-  // PR previews. A separate Worker rather than a preview URL, because preview
-  // URLs are not generated for Workers with a Durable Object. Its own database
-  // (a fresh Neon branch per run), its own bucket, its own hub, and secrets
-  // generated per run -- nothing here can reach production or authenticate a
-  // production account.
-  "env": {
-    "preview": {
-      "name": "workwarden-preview",
-      "workers_dev": true,
-      "preview_urls": false,
-      "routes": [],
-      "hyperdrive": [
-        {
-          "binding": "HYPERDRIVE",
-          // Replaced per run with that PR's Hyperdrive config.
-          "id": "00000000000000000000000000000000",
-          "localConnectionString": "postgresql://postgres:dev@127.0.0.1:5432/workwarden"
-        }
-      ],
-      // Previews register throwaway accounts: the smoke test, the compat suite
-      // and the restore test all do.
-      "vars": { "SIGNUP_ALLOWLIST": "@workwarden.invalid" },
-      "r2_buckets": [{ "binding": "ATTACHMENTS", "bucket_name": "workwarden-attachments-preview" }],
-      "durable_objects": {
-        "bindings": [
-          { "name": "NOTIFICATIONS", "class_name": "NotificationHub" },
-          { "name": "THROTTLE", "class_name": "Throttle" }
-        ]
-      }
-    }
-  }
 }

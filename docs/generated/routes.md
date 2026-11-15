@@ -9,80 +9,35 @@ status: active
 
 # Route surface
 
-73 routes.
+28 routes.
 
 | Method | Path |
 |---|---|
 | DELETE | `/api/ciphers/:id` |
-| DELETE | `/api/ciphers/:id/attachment/:attachmentId` |
-| DELETE | `/api/ciphers/:id/attachment/:attachmentId/delete` |
-| DELETE | `/api/emergency-access/:id` |
 | DELETE | `/api/folders/:id` |
-| DELETE | `/api/sends/:id` |
 | GET | `/` |
 | GET | `/api/accounts/profile` |
 | GET | `/api/accounts/revision-date` |
 | GET | `/api/ciphers/:id` |
 | GET | `/api/config` |
-| GET | `/api/emergency-access/:id/policies` |
-| GET | `/api/emergency-access/granted` |
-| GET | `/api/emergency-access/trusted` |
-| GET | `/api/sends` |
-| GET | `/api/sends/:id` |
-| GET | `/api/sends/access/file/:sendId/:fileId` |
 | GET | `/api/sync` |
-| GET | `/api/two-factor` |
-| GET | `/attachments/:cipherId/:attachmentId` |
 | GET | `/favicon.ico` |
-| GET | `/icons/:domain/icon.png` |
-| GET | `/notifications/hub` |
 | GET | `/robots.txt` |
-| POST | `/api/accounts/claim` |
 | POST | `/api/accounts/key` |
 | POST | `/api/accounts/password` |
 | POST | `/api/accounts/prelogin` |
 | POST | `/api/accounts/register` |
 | POST | `/api/ciphers` |
 | POST | `/api/ciphers/:id` |
-| POST | `/api/ciphers/:id/attachment/:attachmentId` |
-| POST | `/api/ciphers/:id/attachment/:attachmentId/delete` |
-| POST | `/api/ciphers/:id/attachment/v2` |
 | POST | `/api/ciphers/:id/delete` |
 | POST | `/api/ciphers/:id/restore` |
 | POST | `/api/ciphers/import` |
-| POST | `/api/emergency-access/:id` |
-| POST | `/api/emergency-access/:id/accept` |
-| POST | `/api/emergency-access/:id/approve` |
-| POST | `/api/emergency-access/:id/confirm` |
-| POST | `/api/emergency-access/:id/delete` |
-| POST | `/api/emergency-access/:id/initiate` |
-| POST | `/api/emergency-access/:id/password` |
-| POST | `/api/emergency-access/:id/reinvite` |
-| POST | `/api/emergency-access/:id/reject` |
-| POST | `/api/emergency-access/:id/takeover` |
-| POST | `/api/emergency-access/:id/view` |
-| POST | `/api/emergency-access/invite` |
 | POST | `/api/folders` |
 | POST | `/api/folders/:id` |
-| POST | `/api/sends` |
-| POST | `/api/sends/:id/file/:fileId` |
-| POST | `/api/sends/access/:accessId` |
-| POST | `/api/sends/access/:accessId/file/:fileId` |
-| POST | `/api/sends/file` |
-| POST | `/api/sends/file/v2` |
-| POST | `/api/two-factor/authenticator` |
-| POST | `/api/two-factor/disable` |
-| POST | `/api/two-factor/get-authenticator` |
 | POST | `/identity/accounts/prelogin` |
 | POST | `/identity/accounts/prelogin/password` |
 | POST | `/identity/connect/token` |
-| POST | `/notifications/hub/negotiate` |
 | PUT | `/api/ciphers/:id` |
 | PUT | `/api/ciphers/:id/delete` |
 | PUT | `/api/ciphers/:id/restore` |
-| PUT | `/api/emergency-access/:id` |
-| PUT | `/api/emergency-access/invite` |
 | PUT | `/api/folders/:id` |
-| PUT | `/api/sends/:id` |
-| PUT | `/api/sends/:id/remove-password` |
-| PUT | `/api/two-factor/disable` |

@@ -4,18 +4,9 @@ import { z } from 'zod'
 import type { App } from '../app.ts'
 import { constantTimeEquals, deriveAuthHash } from '../auth/kdf.ts'
 import { ACCESS_TOKEN_TTL, issueAccessToken, randomToken } from '../auth/tokens.ts'
-import { verify as verifyTotp } from '../auth/totp.ts'
 import { withDb } from '../db.ts'
-import {
-  blockedFor,
-  clearFailures,
-  loginKeys,
-  recordFailure,
-  tooManyAttempts,
-} from '../throttle.ts'
 import { findByEmail, findById, type User } from '../users.ts'
 import { prelogin } from './prelogin.ts'
-import { AUTHENTICATOR, secondFactorFor } from './two-factor.ts'
 
 type Ctx = Context<App>
 
@@ -30,8 +21,6 @@ const passwordGrant = z.object({
   deviceIdentifier: z.string().min(1),
   deviceName: z.string().optional(),
   deviceType: z.coerce.number().optional(),
-  twoFactorToken: z.string().optional(),
-  twoFactorProvider: z.coerce.number().optional(),
 })
 
 const refreshGrant = z.object({
@@ -76,11 +65,6 @@ identity.post('/connect/token', async (c) => {
 
   const { username, password, scope, deviceIdentifier, deviceName, deviceType } = grant.data
 
-  // Checked before the KDF, so a locked-out caller cannot spend our CPU either.
-  const keys = loginKeys(c, username)
-  const wait = await blockedFor(c, keys)
-  if (wait > 0) return tooManyAttempts(c, wait)
-
   const user = await findByEmail(sql, username)
 
   // Derive even when the user does not exist, so a missing account and a wrong
@@ -88,55 +72,9 @@ identity.post('/connect/token', async (c) => {
   const salt = user?.salt ?? username.toLowerCase()
   const authHash = await deriveAuthHash(password, salt, c.env.AUTH_PEPPER)
 
-  // An imported account has no password hash until it is claimed. Deriving
-  // anyway keeps the timing identical to a wrong password.
   if (!user?.password_hash || !constantTimeEquals(authHash, user.password_hash)) {
-    await recordFailure(c, keys)
     return oauthError(c, 'invalid_grant', 'Username or password is incorrect. Try again')
   }
-  // Only now, with the password proven, is the second factor asked for. Asking
-  // earlier would tell an attacker which accounts exist and have 2FA.
-  const factor = await secondFactorFor(sql, user.id)
-  if (factor) {
-    const token = grant.data.twoFactorToken
-    if (!token) return twoFactorRequired(c)
-
-    const recovered =
-      factor.recovery !== null &&
-      constantTimeEquals(factor.recovery, token.replace(/\s/g, '').toUpperCase())
-
-    let step: number | null = null
-    if (!recovered) {
-      step = await verifyTotp(factor.secret, token)
-      // A code stays valid for its whole window; without this, anyone who sees
-      // it once can reuse it until the window passes.
-      if (
-        step !== null &&
-        factor.last_used_step !== null &&
-        step <= Number(factor.last_used_step)
-      ) {
-        step = null
-      }
-    }
-
-    if (!recovered && step === null) {
-      await recordFailure(c, keys)
-      return twoFactorRequired(c, 'Two-step token is invalid. Try again.')
-    }
-
-    if (recovered) {
-      // A recovery code is single use, and using it turns the factor off so the
-      // account is reachable again.
-      await sql`delete from two_factors where user_id = ${user.id} and type = ${AUTHENTICATOR}`
-    } else {
-      await sql`
-        update two_factors set last_used_step = ${step}
-         where user_id = ${user.id} and type = ${AUTHENTICATOR}`
-    }
-  }
-
-  await clearFailures(c, keys)
-
   const refreshToken = randomToken()
   await sql`
     insert into devices (user_id, identifier, name, type, refresh_token)
@@ -249,21 +187,6 @@ function decryptionOptions(user: User) {
     Object: 'userDecryptionOptions',
     object: 'userDecryptionOptions',
   }
-}
-
-/** The shape a Bitwarden client reads to know it should prompt for a code. */
-function twoFactorRequired(c: Ctx, message = 'Two factor required.') {
-  return c.json(
-    {
-      error: 'invalid_grant',
-      error_description: message,
-      ErrorModel: { Message: message, Object: 'error' },
-      TwoFactorProviders: [String(AUTHENTICATOR)],
-      TwoFactorProviders2: { [String(AUTHENTICATOR)]: null },
-      MasterPasswordPolicy: { object: 'masterPasswordPolicy' },
-    },
-    400,
-  )
 }
 
 function oauthError(c: Ctx, error: string, message: string) {
