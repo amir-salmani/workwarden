@@ -152,10 +152,12 @@ async function tokenResponse(
  */
 function accountKeys(user: User) {
   if (!user.private_key || !user.public_key) return undefined
+  // Read by direct property access in the client (PrivateKeysResponseModel),
+  // so this one is camelCase and must stay so.
   return {
-    PublicKeyEncryptionKeyPair: {
-      PublicKey: user.public_key,
-      WrappedPrivateKey: user.private_key,
+    publicKeyEncryptionKeyPair: {
+      publicKey: user.public_key,
+      wrappedPrivateKey: user.private_key,
     },
   }
 }
