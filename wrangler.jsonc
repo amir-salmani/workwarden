@@ -22,8 +22,17 @@
     }
   ],
 
-  // The one address that may register, once. Config, not a secret.
-  "vars": { "OWNER_EMAIL": "hi@amirsalmani.com" },
+  // Nightly snapshot: one age-encrypted export per user into R2. The Worker
+  // holds the recipient only; the identity is on the break-glass sheet.
+  "r2_buckets": [{ "binding": "SNAPSHOTS", "bucket_name": "workwarden-snapshots" }],
+  "triggers": { "crons": ["17 3 * * *"] },
+
+  // OWNER_EMAIL: the one address that may register, once.
+  // AGE_RECIPIENT: the public half of workwarden-backup-age. Config, not secrets.
+  "vars": {
+    "OWNER_EMAIL": "hi@amirsalmani.com",
+    "AGE_RECIPIENT": "age14ha2ayla8xaq0ulxkya24qqu8m9zwfx6yl6qxyv409kmvamxmdpqhe0ejf"
+  },
 
   "observability": {
     "enabled": true,

@@ -15,6 +15,8 @@ export default defineConfig({
           AUTH_PEPPER: 'test-pepper',
           JWT_SECRET: 'test-secret',
           OWNER_EMAIL: 'alice@example.com',
+          // Test-only keypair; the identity is in test/snapshot.test.ts.
+          AGE_RECIPIENT: 'age1jy5g74gpl27uvu92h6cwedz59yum89ylld3fl0ltk23lj6p56ajs4k0v97',
           TEST_MIGRATIONS: migrations,
         },
       },
