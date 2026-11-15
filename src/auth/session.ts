@@ -18,7 +18,7 @@ export function requireUser(): MiddlewareHandler<App> {
     const claims = await verifyAccessToken(c.env.JWT_SECRET, issuer, token)
     if (!claims) return c.body(null, 401)
 
-    const user = await findById(c.get('sql'), claims.sub)
+    const user = await findById(c.get('db'), claims.sub)
     if (!user || user.security_stamp !== claims.sstamp) return c.body(null, 401)
 
     c.set('user', user)

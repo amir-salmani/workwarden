@@ -1,22 +1,21 @@
-import { cloudflareTest } from '@cloudflare/vitest-pool-workers'
+import { cloudflareTest, readD1Migrations } from '@cloudflare/vitest-pool-workers'
 import { defineConfig } from 'vitest/config'
 
+const migrations = await readD1Migrations('db/migrations')
+
 export default defineConfig({
-  // Every test file shares one Postgres, and resetDatabase() truncates it, so
-  // running files in parallel lets one wipe another's rows mid-test. Revisit
-  // with a schema per worker if the suite gets slow.
-  test: { fileParallelism: false },
+  // Every test file shares one D1, and resetDatabase() empties it, so running
+  // files in parallel lets one wipe another's rows mid-test.
+  test: { fileParallelism: false, setupFiles: ['./test/apply-migrations.ts'] },
   plugins: [
     cloudflareTest({
       wrangler: { configPath: './wrangler.jsonc' },
       miniflare: {
-        hyperdrives: {
-          HYPERDRIVE: 'postgresql://postgres:dev@127.0.0.1:5432/workwarden',
-        },
         bindings: {
           AUTH_PEPPER: 'test-pepper',
           JWT_SECRET: 'test-secret',
           OWNER_EMAIL: 'alice@example.com',
+          TEST_MIGRATIONS: migrations,
         },
       },
     }),

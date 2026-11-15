@@ -4,7 +4,7 @@ import { z } from 'zod'
 import type { App } from '../app.ts'
 import { constantTimeEquals, deriveAuthHash } from '../auth/kdf.ts'
 import { ACCESS_TOKEN_TTL, issueAccessToken, randomToken } from '../auth/tokens.ts'
-import { withDb } from '../db.ts'
+import { now, uuid, withDb } from '../db.ts'
 import { findByEmail, findById, type User } from '../users.ts'
 import { prelogin } from './prelogin.ts'
 
@@ -40,14 +40,15 @@ identity.post('/connect/token', async (c) => {
   } catch {
     return oauthError(c, 'invalid_request', 'Malformed request body')
   }
-  const sql = c.get('sql')
+  const db = c.get('db')
 
   const refresh = refreshGrant.safeParse(form)
   if (refresh.success) {
-    const rows = await sql<{ user_id: string; identifier: string }[]>`
-      select user_id, identifier from devices where refresh_token = ${refresh.data.refresh_token}`
-    const device = rows[0]
-    const user = device && (await findById(sql, device.user_id))
+    const device = await db
+      .prepare('select user_id, identifier from devices where refresh_token = ?')
+      .bind(refresh.data.refresh_token)
+      .first<{ user_id: string; identifier: string }>()
+    const user = device && (await findById(db, device.user_id))
     if (!user) return oauthError(c, 'invalid_grant', 'Refresh token is invalid')
     return c.json(
       await tokenResponse(
@@ -65,24 +66,38 @@ identity.post('/connect/token', async (c) => {
 
   const { username, password, scope, deviceIdentifier, deviceName, deviceType } = grant.data
 
-  const user = await findByEmail(sql, username)
+  const user = await findByEmail(db, username)
 
   // Derive even when the user does not exist, so a missing account and a wrong
   // password cost the same and cannot be told apart by timing.
   const salt = user?.salt ?? username.toLowerCase()
   const authHash = await deriveAuthHash(password, salt, c.env.AUTH_PEPPER)
 
-  if (!user?.password_hash || !constantTimeEquals(authHash, user.password_hash)) {
+  if (!user || !constantTimeEquals(authHash, user.password_hash)) {
     return oauthError(c, 'invalid_grant', 'Username or password is incorrect. Try again')
   }
   const refreshToken = randomToken()
-  await sql`
-    insert into devices (user_id, identifier, name, type, refresh_token)
-    values (${user.id}, ${deviceIdentifier}, ${deviceName ?? null}, ${deviceType ?? 0}, ${refreshToken})
-    on conflict (user_id, identifier) do update
-      set refresh_token = excluded.refresh_token,
-          name          = coalesce(excluded.name, devices.name),
-          revision_date = now()`
+  const at = now()
+  await db
+    .prepare(
+      `insert into devices (id, user_id, identifier, name, type, refresh_token, created_at, revision_date)
+       values (?, ?, ?, ?, ?, ?, ?, ?)
+       on conflict (user_id, identifier) do update
+         set refresh_token = excluded.refresh_token,
+             name          = coalesce(excluded.name, devices.name),
+             revision_date = excluded.revision_date`,
+    )
+    .bind(
+      uuid(),
+      user.id,
+      deviceIdentifier,
+      deviceName ?? null,
+      deviceType ?? 0,
+      refreshToken,
+      at,
+      at,
+    )
+    .run()
 
   return c.json(await tokenResponse(c, user, deviceIdentifier, scope, refreshToken))
 })

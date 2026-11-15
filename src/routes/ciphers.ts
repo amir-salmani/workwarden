@@ -1,19 +1,19 @@
 import { Hono } from 'hono'
-import type { JSONValue } from 'postgres'
 import { z } from 'zod'
 import type { App } from '../app.ts'
 import { requireUser } from '../auth/session.ts'
-import type { Sql } from '../db.ts'
+import { type Db, now, touch, uuid } from '../db.ts'
 import { apiError, insensitive } from '../http.ts'
+import { type CipherRow, cipherJson } from '../wire.ts'
 
 export const ciphers = new Hono<App>()
 ciphers.use('*', requireUser())
 
 // Everything except these is the client's encrypted blob and is stored whole.
-// Two groups: fields cipher_details computes, and fields the client sends on a
-// request that are meaningless in a response. Storing either means echoing the
-// client's own value back and overriding the view -- `attachments: {}` did
-// exactly that and crashed `bw`.
+// Two groups: fields the wire format computes, and fields the client sends on
+// a request that are meaningless in a response. Storing either means echoing
+// the client's own value back and overriding the view -- `attachments: {}`
+// did exactly that and crashed `bw`.
 const SERVER_FIELDS = [
   'id',
   'type',
@@ -40,21 +40,35 @@ const cipherInput = z.object({
   reprompt: z.number().nullish(),
 })
 
+const INSERT =
+  'insert into ciphers (id, user_id, folder_id, type, data, favorite, reprompt, created_at, revision_date) values (?, ?, ?, ?, ?, ?, ?, ?, ?)'
+
 ciphers.post('/', async (c) => {
   const body = insensitive(await c.req.json())
   const parsed = cipherInput.safeParse(body)
   if (!parsed.success) return apiError(c, 'Cipher is missing required fields')
 
-  const rows = await c.get('sql')<{ id: string }[]>`
-    insert into ciphers (user_id, folder_id, type, data, favorite, reprompt)
-    values (
-      ${c.get('user').id}, ${parsed.data.folderId ?? null}, ${parsed.data.type},
-      ${c.get('sql').json(cipherBlob(body))}, ${parsed.data.favorite ?? false},
-      ${parsed.data.reprompt ?? 0}
-    ) returning id`
-  const id = rows[0]?.id
-  if (!id) return apiError(c, 'Could not create cipher', 500)
-  return c.json(await detail(c.get('sql'), c.get('user').id, id, new URL(c.req.url).origin))
+  const db = c.get('db')
+  const user = c.get('user')
+  const id = uuid()
+  const at = now()
+  await db.batch([
+    db
+      .prepare(INSERT)
+      .bind(
+        id,
+        user.id,
+        parsed.data.folderId ?? null,
+        parsed.data.type,
+        JSON.stringify(cipherBlob(body)),
+        parsed.data.favorite ? 1 : 0,
+        parsed.data.reprompt ?? 0,
+        at,
+        at,
+      ),
+    touch(db, user.id, at),
+  ])
+  return c.json(await detail(db, user.id, id))
 })
 
 /**
@@ -76,43 +90,48 @@ ciphers.post('/import', async (c) => {
   if (!parsed.success) return apiError(c, 'Import data is malformed')
 
   const { ciphers: incoming, folders: incomingFolders, folderRelationships } = parsed.data
-  const userId = c.get('user').id
-  const sql = c.get('sql')
+  const db = c.get('db')
+  const user = c.get('user')
+  const at = now()
 
-  await sql.begin(async (tx) => {
-    const folderIds: string[] = []
-    for (const folder of incomingFolders) {
-      const rows = await tx<{ id: string }[]>`
-        insert into folders (user_id, name) values (${userId}, ${folder.name}) returning id`
-      folderIds.push(rows[0]?.id ?? '')
-    }
+  const folderIds = incomingFolders.map(() => uuid())
+  const folderFor = new Map(folderRelationships.map((r) => [r.key, folderIds[r.value]]))
 
-    const folderFor = new Map(folderRelationships.map((r) => [r.key, folderIds[r.value]]))
-
-    for (const [index, raw] of incoming.entries()) {
-      const cipher = insensitive(raw)
-      const parsedCipher = cipherInput.safeParse(cipher)
-      if (!parsedCipher.success) continue
-      await tx`
-        insert into ciphers (user_id, folder_id, type, data, favorite, reprompt)
-        values (
-          ${userId}, ${folderFor.get(index) ?? null}, ${parsedCipher.data.type},
-          ${tx.json(cipherBlob(cipher))}, ${parsedCipher.data.favorite ?? false},
-          ${parsedCipher.data.reprompt ?? 0}
-        )`
-    }
-  })
-
+  const statements = incomingFolders.map((folder, i) =>
+    db
+      .prepare(
+        'insert into folders (id, user_id, name, created_at, revision_date) values (?, ?, ?, ?, ?)',
+      )
+      .bind(folderIds[i], user.id, folder.name, at, at),
+  )
+  for (const [index, raw] of incoming.entries()) {
+    const cipher = insensitive(raw)
+    const parsedCipher = cipherInput.safeParse(cipher)
+    if (!parsedCipher.success) continue
+    statements.push(
+      db
+        .prepare(INSERT)
+        .bind(
+          uuid(),
+          user.id,
+          folderFor.get(index) ?? null,
+          parsedCipher.data.type,
+          JSON.stringify(cipherBlob(cipher)),
+          parsedCipher.data.favorite ? 1 : 0,
+          parsedCipher.data.reprompt ?? 0,
+          at,
+          at,
+        ),
+    )
+  }
+  statements.push(touch(db, user.id, at))
+  // One batch is one transaction: a half-imported vault never lands.
+  await db.batch(statements)
   return c.body(null, 200)
 })
 
 ciphers.get('/:id', async (c) => {
-  const found = await detail(
-    c.get('sql'),
-    c.get('user').id,
-    c.req.param('id'),
-    new URL(c.req.url).origin,
-  )
+  const found = await detail(c.get('db'), c.get('user').id, c.req.param('id'))
   return found ? c.json(found) : apiError(c, 'Cipher not found', 404)
 })
 
@@ -123,52 +142,79 @@ ciphers.on(['PUT', 'POST'], '/:id', async (c) => {
   const parsed = cipherInput.safeParse(body)
   if (!parsed.success) return apiError(c, 'Cipher is missing required fields')
 
-  const rows = await c.get('sql')<{ id: string }[]>`
-    update ciphers set
-      folder_id     = ${parsed.data.folderId ?? null},
-      type          = ${parsed.data.type},
-      data          = ${c.get('sql').json(cipherBlob(body))},
-      favorite      = ${parsed.data.favorite ?? false},
-      reprompt      = ${parsed.data.reprompt ?? 0},
-      revision_date = now()
-    where id = ${id} and user_id = ${c.get('user').id}
-    returning id`
-  if (!rows[0]) return apiError(c, 'Cipher not found', 404)
-  return c.json(await detail(c.get('sql'), c.get('user').id, id, new URL(c.req.url).origin))
+  const db = c.get('db')
+  const user = c.get('user')
+  const at = now()
+  const [updated] = await db.batch([
+    db
+      .prepare(
+        'update ciphers set folder_id = ?, type = ?, data = ?, favorite = ?, reprompt = ?, revision_date = ? where id = ? and user_id = ?',
+      )
+      .bind(
+        parsed.data.folderId ?? null,
+        parsed.data.type,
+        JSON.stringify(cipherBlob(body)),
+        parsed.data.favorite ? 1 : 0,
+        parsed.data.reprompt ?? 0,
+        at,
+        id,
+        user.id,
+      ),
+    touch(db, user.id, at),
+  ])
+  if (!updated?.meta.changes) return apiError(c, 'Cipher not found', 404)
+  return c.json(await detail(db, user.id, id))
 })
 
 // Soft delete -- the client's trash. `DELETE` is the permanent one.
 ciphers.on(['PUT', 'POST'], '/:id/delete', async (c) => {
-  await c.get('sql')`
-    update ciphers set deleted_at = now(), revision_date = now()
-    where id = ${c.req.param('id')} and user_id = ${c.get('user').id}`
+  const db = c.get('db')
+  const user = c.get('user')
+  const at = now()
+  await db.batch([
+    db
+      .prepare('update ciphers set deleted_at = ?, revision_date = ? where id = ? and user_id = ?')
+      .bind(at, at, c.req.param('id'), user.id),
+    touch(db, user.id, at),
+  ])
   return c.body(null, 200)
 })
 
 ciphers.on(['PUT', 'POST'], '/:id/restore', async (c) => {
-  await c.get('sql')`
-    update ciphers set deleted_at = null, revision_date = now()
-    where id = ${c.req.param('id')} and user_id = ${c.get('user').id}`
-  return c.json(
-    await detail(c.get('sql'), c.get('user').id, c.req.param('id'), new URL(c.req.url).origin),
-  )
+  const db = c.get('db')
+  const user = c.get('user')
+  const at = now()
+  await db.batch([
+    db
+      .prepare(
+        'update ciphers set deleted_at = null, revision_date = ? where id = ? and user_id = ?',
+      )
+      .bind(at, c.req.param('id'), user.id),
+    touch(db, user.id, at),
+  ])
+  return c.json(await detail(db, user.id, c.req.param('id')))
 })
 
 ciphers.delete('/:id', async (c) => {
-  await c.get('sql')`
-    delete from ciphers where id = ${c.req.param('id')} and user_id = ${c.get('user').id}`
+  const db = c.get('db')
+  const user = c.get('user')
+  await db.batch([
+    db.prepare('delete from ciphers where id = ? and user_id = ?').bind(c.req.param('id'), user.id),
+    touch(db, user.id),
+  ])
   return c.body(null, 200)
 })
 
-export function cipherBlob(body: Record<string, unknown>): JSONValue {
+export function cipherBlob(body: Record<string, unknown>): Record<string, unknown> {
   const out = { ...body }
   for (const field of SERVER_FIELDS) delete out[field]
-  return out as JSONValue
+  return out
 }
 
-async function detail(sql: Sql, userId: string, id: string, origin: string) {
-  const rows = await sql<{ json: unknown }[]>`
-    select cipher_json(ch, ${origin}) as json
-      from ciphers ch where ch.id = ${id} and ch.user_id = ${userId}`
-  return rows[0]?.json
+async function detail(db: Db, userId: string, id: string) {
+  const row = await db
+    .prepare('select * from ciphers where id = ? and user_id = ?')
+    .bind(id, userId)
+    .first<CipherRow>()
+  return row ? cipherJson(row) : undefined
 }

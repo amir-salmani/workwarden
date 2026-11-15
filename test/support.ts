@@ -1,11 +1,11 @@
 import { env, SELF } from 'cloudflare:test'
-import { connect } from '../src/db.ts'
 
 export const ORIGIN = 'https://vault.example.com'
 
 export async function resetDatabase() {
-  const sql = connect(env)
-  await sql`truncate users cascade`
+  await env.DB.batch(
+    ['ciphers', 'folders', 'devices', 'users'].map((t) => env.DB.prepare(`delete from ${t}`)),
+  )
 }
 
 export type Registration = {

@@ -1,12 +1,10 @@
-import type { Sql } from './db.ts'
+import type { Db } from './db.ts'
 
 export type User = {
   id: string
   email: string
   name: string | null
-  password_hash: string | null
-  claim_token: string | null
-  claimed_at: Date | null
+  password_hash: string
   salt: string
   password_hint: string | null
   kdf_type: number
@@ -17,18 +15,16 @@ export type User = {
   private_key: string | null
   public_key: string | null
   security_stamp: string
-  created_at: Date
-  revision_date: Date
+  created_at: string
+  revision_date: string
 }
 
-export async function findByEmail(sql: Sql, email: string): Promise<User | undefined> {
-  const rows = await sql<User[]>`select * from users where email = ${email.toLowerCase()}`
-  return rows[0]
+export function findByEmail(db: Db, email: string) {
+  return db.prepare('select * from users where email = ?').bind(email.toLowerCase()).first<User>()
 }
 
-export async function findById(sql: Sql, id: string): Promise<User | undefined> {
-  const rows = await sql<User[]>`select * from users where id = ${id}`
-  return rows[0]
+export function findById(db: Db, id: string) {
+  return db.prepare('select * from users where id = ?').bind(id).first<User>()
 }
 
 /** Bitwarden's own default when a client does not say otherwise. */

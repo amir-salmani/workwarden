@@ -3,6 +3,7 @@ import { z } from 'zod'
 import type { App } from '../app.ts'
 import { constantTimeEquals, deriveAuthHash, randomSalt } from '../auth/kdf.ts'
 import { requireUser } from '../auth/session.ts'
+import { now, uuid } from '../db.ts'
 import { apiError, insensitive } from '../http.ts'
 import { DEFAULT_KDF, findByEmail, type User } from '../users.ts'
 import { cipherBlob } from './ciphers.ts'
@@ -38,27 +39,44 @@ accounts.post('/register', async (c) => {
 
   const r = parsed.data
   const email = r.email.toLowerCase()
-  const sql = c.get('sql')
+  const db = c.get('db')
 
   if (!signupAllowed(c.env.OWNER_EMAIL, email)) {
     return apiError(c, 'Registration is closed on this server')
   }
-  if (await findByEmail(sql, email)) return apiError(c, 'User already exists')
+  if (await findByEmail(db, email)) return apiError(c, 'User already exists')
 
   const salt = randomSalt()
   const passwordHash = await deriveAuthHash(r.masterPasswordHash, salt, c.env.AUTH_PEPPER)
+  const at = now()
 
-  await sql`
-    insert into users (
-      email, name, password_hash, salt, password_hint,
-      kdf_type, kdf_iterations, kdf_memory, kdf_parallelism,
-      akey, private_key, public_key
-    ) values (
-      ${email}, ${r.name ?? null}, ${passwordHash}, ${salt}, ${r.masterPasswordHint ?? null},
-      ${r.kdf ?? DEFAULT_KDF.type}, ${r.kdfIterations ?? DEFAULT_KDF.iterations},
-      ${r.kdfMemory ?? null}, ${r.kdfParallelism ?? null},
-      ${r.key}, ${r.keys?.encryptedPrivateKey ?? null}, ${r.keys?.publicKey ?? null}
-    )`
+  await db
+    .prepare(
+      `insert into users (
+         id, email, name, password_hash, salt, password_hint,
+         kdf_type, kdf_iterations, kdf_memory, kdf_parallelism,
+         akey, private_key, public_key, security_stamp, created_at, revision_date
+       ) values (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+    )
+    .bind(
+      uuid(),
+      email,
+      r.name ?? null,
+      passwordHash,
+      salt,
+      r.masterPasswordHint ?? null,
+      r.kdf ?? DEFAULT_KDF.type,
+      r.kdfIterations ?? DEFAULT_KDF.iterations,
+      r.kdfMemory ?? null,
+      r.kdfParallelism ?? null,
+      r.key,
+      r.keys?.encryptedPrivateKey ?? null,
+      r.keys?.publicKey ?? null,
+      uuid(),
+      at,
+      at,
+    )
+    .run()
 
   return c.body(null, 200)
 })
@@ -89,21 +107,29 @@ accounts.post('/password', requireUser(), async (c) => {
   if (!parsed.success) return apiError(c, 'Password change is missing required fields')
 
   const user = c.get('user')
-  const sql = c.get('sql')
   const current = await deriveAuthHash(parsed.data.masterPasswordHash, user.salt, c.env.AUTH_PEPPER)
-  if (!user.password_hash || !constantTimeEquals(current, user.password_hash)) {
+  if (!constantTimeEquals(current, user.password_hash)) {
     return apiError(c, 'Invalid master password')
   }
 
   // A new salt as well, so the stored hash shares nothing with the old one.
   const salt = randomSalt()
   const next = await deriveAuthHash(parsed.data.newMasterPasswordHash, salt, c.env.AUTH_PEPPER)
-  await sql`
-    update users
-       set password_hash = ${next}, salt = ${salt}, akey = ${parsed.data.key},
-           password_hint = ${parsed.data.masterPasswordHint ?? user.password_hint},
-           security_stamp = gen_random_uuid(), revision_date = now()
-     where id = ${user.id}`
+  await c
+    .get('db')
+    .prepare(
+      'update users set password_hash = ?, salt = ?, akey = ?, password_hint = ?, security_stamp = ?, revision_date = ? where id = ?',
+    )
+    .bind(
+      next,
+      salt,
+      parsed.data.key,
+      parsed.data.masterPasswordHint ?? user.password_hint,
+      uuid(),
+      now(),
+      user.id,
+    )
+    .run()
 
   return c.body(null, 200)
 })
@@ -111,9 +137,9 @@ accounts.post('/password', requireUser(), async (c) => {
 /**
  * Rotate the account encryption key.
  *
- * Every cipher and folder is re-encrypted client-side under a fresh key
- * and sent back in one request; the server swaps them in atomically. A partial
- * rotation would leave a vault half-readable, so it is one transaction.
+ * Every cipher and folder is re-encrypted client-side under a fresh key and
+ * sent back in one request; the server swaps them in atomically. A partial
+ * rotation would leave a vault half-readable, so it is one batch.
  */
 const keyRotation = z.object({
   masterPasswordHash: z.string().min(1),
@@ -128,32 +154,31 @@ accounts.post('/key', requireUser(), async (c) => {
   if (!parsed.success) return apiError(c, 'Key rotation is missing required fields')
 
   const user = c.get('user')
-  const sql = c.get('sql')
+  const db = c.get('db')
   const current = await deriveAuthHash(parsed.data.masterPasswordHash, user.salt, c.env.AUTH_PEPPER)
-  if (!user.password_hash || !constantTimeEquals(current, user.password_hash)) {
+  if (!constantTimeEquals(current, user.password_hash)) {
     return apiError(c, 'Invalid master password')
   }
 
-  await sql.begin(async (tx) => {
-    await tx`
-      update users set akey = ${parsed.data.key},
-             private_key = ${parsed.data.privateKey ?? user.private_key},
-             security_stamp = gen_random_uuid(), revision_date = now()
-       where id = ${user.id}`
-
-    for (const folder of parsed.data.folders) {
-      await tx`
-        update folders set name = ${folder.name}, revision_date = now()
-         where id = ${folder.id} and user_id = ${user.id}`
-    }
-    for (const raw of parsed.data.ciphers) {
+  const at = now()
+  await db.batch([
+    db
+      .prepare(
+        'update users set akey = ?, private_key = ?, security_stamp = ?, revision_date = ? where id = ?',
+      )
+      .bind(parsed.data.key, parsed.data.privateKey ?? user.private_key, uuid(), at, user.id),
+    ...parsed.data.folders.map((folder) =>
+      db
+        .prepare('update folders set name = ?, revision_date = ? where id = ? and user_id = ?')
+        .bind(folder.name, at, folder.id, user.id),
+    ),
+    ...parsed.data.ciphers.map((raw) => {
       const cipher = insensitive(raw as Record<string, unknown>)
-      const id = String(cipher.id)
-      await tx`
-        update ciphers set data = ${tx.json(cipherBlob(cipher))}, revision_date = now()
-         where id = ${id} and user_id = ${user.id}`
-    }
-  })
+      return db
+        .prepare('update ciphers set data = ?, revision_date = ? where id = ? and user_id = ?')
+        .bind(JSON.stringify(cipherBlob(cipher)), at, String(cipher.id), user.id)
+    }),
+  ])
 
   return c.body(null, 200)
 })
@@ -161,7 +186,7 @@ accounts.post('/key', requireUser(), async (c) => {
 accounts.get('/profile', requireUser(), (c) => c.json(profile(c.get('user'))))
 
 accounts.get('/revision-date', requireUser(), (c) =>
-  c.body(String(c.get('user').revision_date.getTime())),
+  c.body(String(Date.parse(c.get('user').revision_date))),
 )
 
 export function profile(user: User) {
@@ -181,7 +206,7 @@ export function profile(user: User) {
     forcePasswordReset: false,
     usesKeyConnector: false,
     avatarColor: null,
-    creationDate: user.created_at.toISOString(),
+    creationDate: user.created_at,
     organizations: [],
     providers: [],
     providerOrganizations: [],

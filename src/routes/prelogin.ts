@@ -11,7 +11,7 @@ import { DEFAULT_KDF, findByEmail } from '../users.ts'
 export async function prelogin(c: Context<App>) {
   const body = insensitive(await c.req.json())
   const email = typeof body.email === 'string' ? body.email : ''
-  const user = await findByEmail(c.get('sql'), email)
+  const user = await findByEmail(c.get('db'), email)
 
   // An unknown email gets the defaults rather than an error: replying "no such
   // user" here would turn prelogin into an account-enumeration oracle.

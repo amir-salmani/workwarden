@@ -5,21 +5,20 @@
   // Capped by the workerd bundled with miniflare; a later date fails the test
   // run with ERR_FUTURE_COMPATIBILITY_DATE. Raise it when wrangler updates.
   "compatibility_date": "2026-08-15",
-  // postgres.js needs it; goes with Hyperdrive when D1 lands.
-  "compatibility_flags": ["nodejs_compat"],
 
   // workers.dev only. vault.amirsalmani.com is the live Vaultwarden until the
   // cutover; nothing in this file may name that host before then.
   "workers_dev": true,
   "preview_urls": false,
 
-  // Neon via Hyperdrive, until D1. localConnectionString is what dev and tests
-  // use; the id is never touched locally.
-  "hyperdrive": [
+  // The vault. One SQLite database on D1; migrations in db/migrations, applied
+  // with `npm run migrate` (local) or `npm run migrate:remote`.
+  "d1_databases": [
     {
-      "binding": "HYPERDRIVE",
-      "id": "eace91137a9649659e5fcd5011063257",
-      "localConnectionString": "postgresql://postgres:dev@127.0.0.1:5432/workwarden"
+      "binding": "DB",
+      "database_name": "workwarden",
+      "database_id": "8fa407f4-2e94-452d-a6b1-c6ea0278a4ff",
+      "migrations_dir": "db/migrations"
     }
   ],
 
@@ -28,7 +27,8 @@
 
   "observability": {
     "enabled": true,
-    "logs": { "invocation_logs": true, "head_sampling_rate": 1 }
+    "logs": { "invocation_logs": true, "head_sampling_rate": 1 },
+    "traces": { "enabled": true }
   }
 
   // account_id is deliberately absent: this repo is public.

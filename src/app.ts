@@ -1,5 +1,5 @@
 import { Hono } from 'hono'
-import { type Sql, withDb } from './db.ts'
+import { type Db, withDb } from './db.ts'
 import { accounts } from './routes/accounts.ts'
 import { ciphers } from './routes/ciphers.ts'
 import { config } from './routes/config.ts'
@@ -11,7 +11,7 @@ import type { User } from './users.ts'
 
 export type App = {
   Bindings: Env
-  Variables: { sql: Sql; user: User; deviceId: string }
+  Variables: { db: Db; user: User; deviceId: string }
 }
 
 // Importable from plain Node so scripts/route-surface.mjs can read app.routes
