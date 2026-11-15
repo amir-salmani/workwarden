@@ -69,6 +69,39 @@ it('records the user key id and hands it back on the next login', async () => {
   expect(next.UserDecryptionOptions.UserKeyId).toBe('key-id-1')
 })
 
+it('answers the device and hint probes the mobile apps make', async () => {
+  await register()
+  const auth = await authHeaders()
+  const known = (id: string, email: string) =>
+    SELF.fetch(`${ORIGIN}/api/devices/knowndevice`, {
+      headers: { 'X-Device-Identifier': id, 'X-Request-Email': btoa(email) },
+    })
+  expect(await (await known('test-device', ALICE.email)).json()).toBe(true)
+  expect(await (await known('other-device', ALICE.email)).json()).toBe(false)
+  expect(await (await known('test-device', 'nobody@example.com')).json()).toBe(false)
+  expect(
+    (
+      await SELF.fetch(`${ORIGIN}/api/devices/identifier/test-device/token`, {
+        method: 'PUT',
+        headers: auth,
+      })
+    ).status,
+  ).toBe(200)
+  expect(
+    (await SELF.fetch(`${ORIGIN}/api/devices/identifier/test-device/token`, { method: 'PUT' }))
+      .status,
+  ).toBe(401)
+  expect(
+    (
+      await SELF.fetch(`${ORIGIN}/api/accounts/password-hint`, {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: '{"email":"x@y.test"}',
+      })
+    ).status,
+  ).toBe(200)
+})
+
 it('answers prelogin in both the pre- and post-2026.10 client shapes', async () => {
   await register()
   const res = await SELF.fetch(`${ORIGIN}/identity/accounts/prelogin/password`, {

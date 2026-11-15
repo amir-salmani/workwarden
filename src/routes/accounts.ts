@@ -83,6 +83,10 @@ accounts.post('/register', async (c) => {
 
 accounts.post('/prelogin', prelogin)
 
+// There is no email to send a hint with. 200 either way, so the form cannot be
+// used to learn which addresses exist.
+accounts.post('/password-hint', (c) => c.body(null, 200))
+
 /**
  * Change the master password.
  *

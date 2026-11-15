@@ -9,7 +9,7 @@ status: active
 
 # Route surface
 
-29 routes.
+34 routes.
 
 | Method | Path |
 |---|---|
@@ -20,12 +20,14 @@ status: active
 | GET | `/api/accounts/revision-date` |
 | GET | `/api/ciphers/:id` |
 | GET | `/api/config` |
+| GET | `/api/devices/knowndevice` |
 | GET | `/api/sync` |
 | GET | `/favicon.ico` |
 | GET | `/robots.txt` |
 | POST | `/api/accounts/key` |
 | POST | `/api/accounts/key-management/user-key-id` |
 | POST | `/api/accounts/password` |
+| POST | `/api/accounts/password-hint` |
 | POST | `/api/accounts/prelogin` |
 | POST | `/api/accounts/register` |
 | POST | `/api/ciphers` |
@@ -33,6 +35,7 @@ status: active
 | POST | `/api/ciphers/:id/delete` |
 | POST | `/api/ciphers/:id/restore` |
 | POST | `/api/ciphers/import` |
+| POST | `/api/devices/identifier/:id/clear-token` |
 | POST | `/api/folders` |
 | POST | `/api/folders/:id` |
 | POST | `/identity/accounts/prelogin` |
@@ -41,4 +44,6 @@ status: active
 | PUT | `/api/ciphers/:id` |
 | PUT | `/api/ciphers/:id/delete` |
 | PUT | `/api/ciphers/:id/restore` |
+| PUT | `/api/devices/identifier/:id/clear-token` |
+| PUT | `/api/devices/identifier/:id/token` |
 | PUT | `/api/folders/:id` |

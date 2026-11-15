@@ -3,6 +3,7 @@ import { type Db, withDb } from './db.ts'
 import { accounts } from './routes/accounts.ts'
 import { ciphers } from './routes/ciphers.ts'
 import { config } from './routes/config.ts'
+import { devices } from './routes/devices.ts'
 import { folders } from './routes/folders.ts'
 import { home } from './routes/home.ts'
 import { identity } from './routes/identity.ts'
@@ -25,6 +26,7 @@ export function createApp() {
   app.route('/api/sync', sync)
   app.route('/api/ciphers', ciphers)
   app.route('/api/folders', folders)
+  app.route('/api/devices', devices)
   app.route('/identity', identity)
   return app
 }
