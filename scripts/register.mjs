@@ -3,7 +3,8 @@
 // master password never leaves this process.
 //
 //   BASE=https://workwarden.example.workers.dev node scripts/register.mjs you@example.com
-import { createInterface } from 'node:readline'
+import { execSync } from 'node:child_process'
+import { createInterface } from 'node:readline/promises'
 import { makeAccount } from '../compat/bitwarden-crypto.mjs'
 
 const base = process.env.BASE
@@ -13,19 +14,18 @@ if (!base || !email) {
   process.exit(2)
 }
 
-function ask(prompt) {
-  return new Promise((resolve) => {
-    const rl = createInterface({ input: process.stdin, output: process.stdout, terminal: true })
-    const echo = rl._writeToOutput
-    rl.question(prompt, (answer) => {
-      rl._writeToOutput = echo
-      rl.close()
-      process.stdout.write('\n')
-      resolve(answer)
-    })
-    // Hidden input: swallow the echo until the answer arrives.
-    rl._writeToOutput = () => {}
-  })
+// Hidden input: turn the terminal's echo off around the question.
+async function ask(prompt) {
+  const rl = createInterface({ input: process.stdin, output: process.stdout })
+  const tty = process.stdin.isTTY
+  if (tty) execSync('stty -echo', { stdio: 'inherit' })
+  try {
+    return await rl.question(prompt)
+  } finally {
+    if (tty) execSync('stty echo', { stdio: 'inherit' })
+    rl.close()
+    process.stdout.write('\n')
+  }
 }
 
 const password = await ask(`Master password for ${email}: `)

@@ -41,6 +41,21 @@ it('gives an unknown email the default KDF rather than an error', async () => {
   expect(await res.json()).toMatchObject({ kdf: 0, kdfIterations: 600000 })
 })
 
+it('answers prelogin in both the pre- and post-2026.10 client shapes', async () => {
+  await register()
+  const res = await SELF.fetch(`${ORIGIN}/identity/accounts/prelogin/password`, {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify({ email: 'Alice@Example.com' }),
+  })
+  expect(await res.json()).toMatchObject({
+    kdf: 0,
+    kdfIterations: 600000,
+    kdfSettings: { kdfType: 0, iterations: 600000, memory: null, parallelism: null },
+    salt: 'alice@example.com',
+  })
+})
+
 it('accepts the capitalised field names older clients send', async () => {
   const res = await SELF.fetch(`${ORIGIN}/api/accounts/register`, {
     method: 'POST',
