@@ -16,7 +16,8 @@ if (!base || !email) {
 
 // Hidden input: turn the terminal's echo off around the question.
 async function ask(prompt) {
-  const rl = createInterface({ input: process.stdin, output: process.stdout })
+  // terminal: false, or readline echoes the keystrokes itself regardless of stty.
+  const rl = createInterface({ input: process.stdin, output: process.stdout, terminal: false })
   const tty = process.stdin.isTTY
   if (tty) execSync('stty -echo', { stdio: 'inherit' })
   try {
@@ -36,11 +37,17 @@ if (password !== again || password.length < 12) {
 }
 
 const account = await makeAccount(email, password)
-const r = await fetch(`${base}/api/accounts/register`, {
-  method: 'POST',
-  headers: { 'content-type': 'application/json' },
-  body: JSON.stringify(account),
-})
+let r
+try {
+  r = await fetch(`${base}/api/accounts/register`, {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify(account),
+  })
+} catch (e) {
+  console.error(`could not reach ${base}: ${e.cause?.message ?? e.message}`)
+  process.exit(1)
+}
 if (!r.ok) {
   console.error(`register failed: ${r.status} ${await r.text()}`)
   process.exit(1)
