@@ -41,13 +41,22 @@ it('gives an unknown email the default KDF rather than an error', async () => {
   expect(await res.json()).toMatchObject({ kdf: 0, kdfIterations: 600000 })
 })
 
+it('sends every login field in exactly one casing', async () => {
+  await register()
+  const body = (await (await login()).json()) as Record<string, unknown>
+  const lower = new Set(Object.keys(body).map((k) => k.toLowerCase()))
+  expect(lower.size).toBe(Object.keys(body).length)
+  expect(body.Key).toBe(ALICE.key)
+  expect(body).not.toHaveProperty('key')
+})
+
 it('records the user key id and hands it back on the next login', async () => {
   await register()
   const auth = await authHeaders()
   const first = (await (await login()).json()) as {
-    userDecryptionOptions: { userKeyId: string | null }
+    UserDecryptionOptions: { UserKeyId: string | null }
   }
-  expect(first.userDecryptionOptions.userKeyId).toBeNull()
+  expect(first.UserDecryptionOptions.UserKeyId).toBeNull()
 
   const res = await SELF.fetch(`${ORIGIN}/api/accounts/key-management/user-key-id`, {
     method: 'POST',
@@ -56,8 +65,8 @@ it('records the user key id and hands it back on the next login', async () => {
   })
   expect(res.status).toBe(200)
 
-  const next = (await (await login()).json()) as { userDecryptionOptions: { userKeyId: string } }
-  expect(next.userDecryptionOptions.userKeyId).toBe('key-id-1')
+  const next = (await (await login()).json()) as { UserDecryptionOptions: { UserKeyId: string } }
+  expect(next.UserDecryptionOptions.UserKeyId).toBe('key-id-1')
 })
 
 it('answers prelogin in both the pre- and post-2026.10 client shapes', async () => {

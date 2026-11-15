@@ -123,30 +123,20 @@ async function tokenResponse(
     refresh_token: refreshToken,
     scope,
 
-    // Both casings on purpose. Clients have read these fields as PascalCase for
-    // years and newer ones read camelCase; sending one alone breaks the other.
+    // PascalCase only, as Vaultwarden sends it. Bitwarden clients read these
+    // case-insensitively; rbw deserialises with serde, which rejects a field
+    // present in two casings as a duplicate.
     Key: user.akey,
-    key: user.akey,
     PrivateKey: user.private_key,
-    privateKey: user.private_key,
     Kdf: user.kdf_type,
-    kdf: user.kdf_type,
     KdfIterations: user.kdf_iterations,
-    kdfIterations: user.kdf_iterations,
     KdfMemory: user.kdf_memory,
-    kdfMemory: user.kdf_memory,
     KdfParallelism: user.kdf_parallelism,
-    kdfParallelism: user.kdf_parallelism,
     ResetMasterPassword: false,
-    resetMasterPassword: false,
     ForcePasswordReset: false,
-    forcePasswordReset: false,
-    MasterPasswordPolicy: { object: 'masterPasswordPolicy' },
-    masterPasswordPolicy: { object: 'masterPasswordPolicy' },
+    MasterPasswordPolicy: { Object: 'masterPasswordPolicy' },
     UserDecryptionOptions: decryptionOptions(user),
-    userDecryptionOptions: decryptionOptions(user),
     AccountKeys: accountKeys(user),
-    accountKeys: accountKeys(user),
     unofficialServer: true,
   }
 }
@@ -163,9 +153,9 @@ async function tokenResponse(
 function accountKeys(user: User) {
   if (!user.private_key || !user.public_key) return undefined
   return {
-    publicKeyEncryptionKeyPair: {
-      publicKey: user.public_key,
-      wrappedPrivateKey: user.private_key,
+    PublicKeyEncryptionKeyPair: {
+      PublicKey: user.public_key,
+      WrappedPrivateKey: user.private_key,
     },
   }
 }
@@ -175,34 +165,21 @@ function accountKeys(user: User) {
 // client-side KDF salt, which is the lowercased email.
 function decryptionOptions(user: User) {
   const kdf = {
-    kdfType: user.kdf_type,
-    iterations: user.kdf_iterations,
-    memory: user.kdf_memory,
-    parallelism: user.kdf_parallelism,
+    KdfType: user.kdf_type,
+    Iterations: user.kdf_iterations,
+    Memory: user.kdf_memory,
+    Parallelism: user.kdf_parallelism,
   }
   return {
     HasMasterPassword: true,
-    hasMasterPassword: true,
     MasterPasswordUnlock: {
       Kdf: kdf,
-      kdf,
       MasterKeyEncryptedUserKey: user.akey,
-      masterKeyEncryptedUserKey: user.akey,
       MasterKeyWrappedUserKey: user.akey,
-      masterKeyWrappedUserKey: user.akey,
       Salt: user.email,
-      salt: user.email,
-    },
-    masterPasswordUnlock: {
-      kdf,
-      masterKeyEncryptedUserKey: user.akey,
-      masterKeyWrappedUserKey: user.akey,
-      salt: user.email,
     },
     UserKeyId: user.user_key_id,
-    userKeyId: user.user_key_id,
     Object: 'userDecryptionOptions',
-    object: 'userDecryptionOptions',
   }
 }
 
