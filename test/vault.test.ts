@@ -190,6 +190,23 @@ it('still reports a null key for ciphers that have none', async () => {
   expect((body.ciphers[0] as unknown as { key: string | null }).key).toBeNull()
 })
 
+it('tells the Android app how to unlock with the master password, in sync too', async () => {
+  const body = (await (await SELF.fetch(`${ORIGIN}/api/sync`, { headers: auth })).json()) as {
+    userDecryption: {
+      masterPasswordUnlock: {
+        salt: string
+        kdf: { kdfType: number; iterations: number }
+        masterKeyWrappedUserKey: string
+      }
+    }
+  }
+  expect(body.userDecryption.masterPasswordUnlock).toMatchObject({
+    salt: 'alice@example.com',
+    kdf: { kdfType: 0, iterations: 600000 },
+    masterKeyWrappedUserKey: '2.protected-symmetric-key',
+  })
+})
+
 it('tells the client it may delete and restore its own items', async () => {
   // Clients default both to false when this object is missing, and then refuse
   // Delete and Restore on every item despite the server allowing them.

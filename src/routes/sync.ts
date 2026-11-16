@@ -1,6 +1,7 @@
 import { Hono } from 'hono'
 import type { App } from '../app.ts'
 import { requireUser } from '../auth/session.ts'
+import { masterPasswordUnlock } from '../auth/unlock.ts'
 import { type CipherRow, cipherJson, type FolderRow, folderJson } from '../wire.ts'
 import { profile } from './accounts.ts'
 
@@ -21,6 +22,7 @@ sync.get('/', requireUser(), async (c) => {
     domains: null,
     policies: [],
     sends: [],
+    userDecryption: { masterPasswordUnlock: masterPasswordUnlock(user), v2UpgradeToken: null },
     object: 'sync',
   })
 })

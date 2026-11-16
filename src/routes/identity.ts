@@ -4,6 +4,7 @@ import { z } from 'zod'
 import type { App } from '../app.ts'
 import { constantTimeEquals, deriveAuthHash } from '../auth/kdf.ts'
 import { ACCESS_TOKEN_TTL, issueAccessToken, randomToken } from '../auth/tokens.ts'
+import { masterPasswordUnlock } from '../auth/unlock.ts'
 import { now, uuid, withDb } from '../db.ts'
 import { findByEmail, findById, type User } from '../users.ts'
 import { prelogin } from './prelogin.ts'
@@ -166,24 +167,11 @@ function accountKeys(user: User) {
 // cryptographic state; without it `bw login` fails after a 200. Salt is the
 // client-side KDF salt, which is the lowercased email.
 // Top-level login fields are PascalCase (above); everything inside this object
-// is camelCase. The Android app deserialises it case-sensitively with those
-// exact names, and with `HasMasterPassword` it concluded there was no master
-// password, routed to "set password", and logged the account out.
+// is camelCase, read case-sensitively by the Android app.
 function decryptionOptions(user: User) {
-  const kdf = {
-    kdfType: user.kdf_type,
-    iterations: user.kdf_iterations,
-    memory: user.kdf_memory,
-    parallelism: user.kdf_parallelism,
-  }
   return {
     hasMasterPassword: true,
-    masterPasswordUnlock: {
-      kdf,
-      masterKeyEncryptedUserKey: user.akey,
-      masterKeyWrappedUserKey: user.akey,
-      salt: user.email,
-    },
+    masterPasswordUnlock: masterPasswordUnlock(user),
     userKeyId: user.user_key_id,
     object: 'userDecryptionOptions',
   }
