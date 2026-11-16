@@ -165,23 +165,27 @@ function accountKeys(user: User) {
 // MasterPasswordUnlock is what newer clients turn into their account
 // cryptographic state; without it `bw login` fails after a 200. Salt is the
 // client-side KDF salt, which is the lowercased email.
+// Top-level login fields are PascalCase (above); everything inside this object
+// is camelCase. The Android app deserialises it case-sensitively with those
+// exact names, and with `HasMasterPassword` it concluded there was no master
+// password, routed to "set password", and logged the account out.
 function decryptionOptions(user: User) {
   const kdf = {
-    KdfType: user.kdf_type,
-    Iterations: user.kdf_iterations,
-    Memory: user.kdf_memory,
-    Parallelism: user.kdf_parallelism,
+    kdfType: user.kdf_type,
+    iterations: user.kdf_iterations,
+    memory: user.kdf_memory,
+    parallelism: user.kdf_parallelism,
   }
   return {
-    HasMasterPassword: true,
-    MasterPasswordUnlock: {
-      Kdf: kdf,
-      MasterKeyEncryptedUserKey: user.akey,
-      MasterKeyWrappedUserKey: user.akey,
-      Salt: user.email,
+    hasMasterPassword: true,
+    masterPasswordUnlock: {
+      kdf,
+      masterKeyEncryptedUserKey: user.akey,
+      masterKeyWrappedUserKey: user.akey,
+      salt: user.email,
     },
-    UserKeyId: user.user_key_id,
-    Object: 'userDecryptionOptions',
+    userKeyId: user.user_key_id,
+    object: 'userDecryptionOptions',
   }
 }
 

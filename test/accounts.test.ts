@@ -54,9 +54,9 @@ it('records the user key id and hands it back on the next login', async () => {
   await register()
   const auth = await authHeaders()
   const first = (await (await login()).json()) as {
-    UserDecryptionOptions: { UserKeyId: string | null }
+    UserDecryptionOptions: { userKeyId: string | null }
   }
-  expect(first.UserDecryptionOptions.UserKeyId).toBeNull()
+  expect(first.UserDecryptionOptions.userKeyId).toBeNull()
 
   const res = await SELF.fetch(`${ORIGIN}/api/accounts/key-management/user-key-id`, {
     method: 'POST',
@@ -65,8 +65,8 @@ it('records the user key id and hands it back on the next login', async () => {
   })
   expect(res.status).toBe(200)
 
-  const next = (await (await login()).json()) as { UserDecryptionOptions: { UserKeyId: string } }
-  expect(next.UserDecryptionOptions.UserKeyId).toBe('key-id-1')
+  const next = (await (await login()).json()) as { UserDecryptionOptions: { userKeyId: string } }
+  expect(next.UserDecryptionOptions.userKeyId).toBe('key-id-1')
 })
 
 it('answers the device and hint probes the mobile apps make', async () => {
