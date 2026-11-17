@@ -1,163 +1,80 @@
 ---
 type: Decision Record
 title: The backup, and why restore is server-side
-description: An automated encrypted export off Cloudflare and off Neon, and the client constraint that shapes it.
+description: A nightly age-encrypted export from the Worker to R2, the recipient-only rule, and the restore that needs the same pepper.
 status: settled
 created: 2026-09-11
-timestamp: 2026-09-12
+timestamp: 2026-11-17
 tags: [workwarden, backup, export, restore]
 related:
-  - history/FEASIBILITY.md
-  - history/STORAGE.md
-  - history/STACK.md
+  - SHAVE.md
+  - history/BACKUP-github.md
+  - ../scripts/restore.mjs
 ---
-
-> 2026-11-15: the export now lands in R2 nightly, written by a cron trigger in the Worker and age-encrypted there (`src/snapshot.ts`); restore is `scripts/restore.mjs`. The format and the reasoning below are unchanged. Neon no longer exists.
 
 # The backup
 
-[FEASIBILITY.md §2.4](history/FEASIBILITY.md) makes this non-negotiable: an automated
-encrypted export, in a standard format, landing somewhere neither Cloudflare nor
-Neon controls. Not a database dump — a dump is restorable only into the thing it
-came from, which is no exit at all.
+Every night at 03:17 UTC a cron trigger runs `snapshot()` in
+[`src/snapshot.ts`](../src/snapshot.ts). For each user it builds an export,
+encrypts it to `AGE_RECIPIENT`, and writes two R2 objects:
+`<user-id>/<YYYY-MM-DD>.json.age` and `<user-id>/latest.json.age`. First run
+2026-11-17: 319 items, 91 folders, 623 KB.
 
----
+## What is in the file
 
-## Part 1 — What is in the file
+Bitwarden's export shape, plus one block that makes it restorable rather than
+merely readable:
 
-`vault_export` builds it, and every field in it is already ciphertext. The server
-has never held a key that could decrypt a vault, so the export is zero-knowledge
-by construction.
-
-| | |
+| Key | Holds |
 |---|---|
-| `items`, `folders` | exactly Bitwarden's export shape |
-| `workwarden.account` | the protected symmetric key, the RSA keypair, the KDF parameters, the server-side password hash and salt |
+| `encrypted: true` | every item field is ciphertext under the account key, as the client sent it |
+| `folders`, `items` | exactly what `bw export --format encrypted_json` would hold |
+| `workwarden.account` | the user row: email, KDF settings, the wrapped account key, the public/private keypair, and the server-side password verifier |
 
-The account block is the difference between an export you can *read* and one you
-can *restore*. Without it the ciphertext is unopenable by anyone, forever.
+The server has never held a key that could decrypt an item, so the export is
+zero-knowledge by construction; the age layer protects the account block and
+the metadata, not the secrets.
 
-**What it does not carry**, as of 2026-09-12:
+## Recipient on the Worker, identity off it
 
-| | Lost if Neon and R2 both vanish | Why it is acceptable |
-|---|---|---|
-| Attachment **blobs** (R2) | yes — the item survives, the file does not | the only irreplaceable one; one file today |
-| Sends | yes | they expire by design; a Send older than its deletion date is already gone |
-| 2FA enrolment | yes | re-enrol from the authenticator app in a minute |
-| Emergency-access grants | yes | re-invite; the grantee's own vault is untouched |
+The Worker holds the age *recipient* (a public key, in `wrangler.jsonc` as
+config). It can write a backup it cannot read. The *identity* lives somewhere
+that is neither the Worker, nor this Cloudflare account, nor the vault the
+backup restores. If the identity's only copy is an item in the vault, the
+backup is unreadable on exactly the day it is needed.
 
-Trashed items *are* carried: they are ordinary rows with a deletion date.
-
-On top of that, [age](https://age-encryption.org) public-key encryption. CI holds
-the **recipient**, never the identity — so a compromised workflow can write a
-backup but cannot read one back.
-
-## Part 2 — Restore is server-side, and that is not a shortcut
-
-`bw import` of an account-encrypted export requires
-`encKeyValidation_DO_NOT_EDIT`: a GUID encrypted **with the user's key**, which
-the importer decrypts to confirm the key matches. Only a client can mint it.
-
-**A server able to produce that field would be a server able to read your
-vault.** The zero-knowledge property and client-importable server-side exports
-are mutually exclusive; this design keeps the former.
-
-So restore loads the export back into a Bitwarden-compatible server —
-`scripts/restore-vault.mjs` — and the client then syncs as usual. The account
-keeps its original id, so a client that had synced before sees the same vault
-rather than a duplicate.
-
-## Part 3 — The recovery kit is two things, not one
-
-The backup file **is not sufficient on its own**.
-
-1. the `.age` backup
-2. the **`AUTH_PEPPER`** it was taken under
-
-The stored password hash is peppered ([FEASIBILITY.md §2.1](history/FEASIBILITY.md)), so
-restoring under a different pepper produces an account nobody can log into. The
-vault data would still be intact and the master password would still decrypt it,
-but authentication would have to be rebuilt by hand.
-
-Back the pepper up separately, and not beside the backups.
-
-## Part 4 — It is tested, not asserted
-
-`compat/verify-backup.sh` runs the whole cycle against a throwaway database:
-build a vault with a real client, export it, **delete every row**, restore from
-the encrypted file alone, then log in with a *fresh* client and check the
-passwords come back.
+## Restore
 
 ```
-ok   built a vault with a real client
-ok   exported and encrypted
-ok   deleted the vault
-ok   restored from the encrypted backup
-ok   a fresh client decrypted the restored vault
-PASS the backup restores a working vault
+node scripts/restore.mjs latest.json.age <identity-file> --remote
 ```
 
-It runs on every pull request, against that PR's own Neon branch, with a keypair
-generated and discarded inside the run.
+Decrypts, turns the export into SQL, applies it with `wrangler d1 execute` into
+an **empty** database. Two things carry over and one does not:
 
-## Part 5 — Leaving, for anywhere
+- The password verifier carries over, so the Worker must run with the same
+  `AUTH_PEPPER` the export was taken under. Keep the pepper with the identity.
+- The item and folder ids carry over, so clients that synced before see the same
+  vault.
+- The security stamp is fresh, so every old session is dead; clients log in
+  again.
 
-The files in `vaults/` are Bitwarden-shaped, but every field inside them is
-still ciphertext under the account key. **They cannot be imported into
-1Password, Bitwarden cloud, or anything else directly.** Only a client holding
-the master password can turn them back into readable items.
+Then log in with the master password. Nothing else is needed.
 
-So the exit always has the same shape, whatever the destination and however many
-years later:
+## Leaving, for anywhere
 
-1. stand a server up from a backup — workwarden, or the archived Vaultwarden
-2. point a client at it
-3. let the client export
+The items cannot be imported into 1Password, Bitwarden cloud or anything else
+directly: they are ciphertext under the account key, and no other service holds
+that key. The exit is always the same three steps: restore into any workwarden
+(a free Cloudflare account is enough), log in with the master password from a
+client, export plaintext from that client. Write it to `/dev/shm`, import where
+you are going, `shred -u`.
 
-```sh
-bw config server <that server>
-bw login you@example.com
+## What this replaced
 
-bw export --format encrypted_json --password '<transfer passphrase>'  # Bitwarden, Vaultwarden
-bw export --format json                                               # anything else, PLAINTEXT
-```
-
-`encrypted_json` with `--password` is keyed by the passphrase rather than the
-account, which is what makes it portable between accounts and servers. Prefer
-it.
-
-Plaintext `json`/`csv` is what 1Password and KeePass actually accept. It is
-every password you own, readable. Write it to `/dev/shm`, import, `shred -u`.
-
-## Part 6 — Where the file goes
-
-A private GitHub repository, `workwarden-backups`, written daily by
-`.github/workflows/backup.yml`. One age-encrypted file per vault, named for the
-vault and overwritten in place; git history is the versioning.
-
-**A night that changed nothing writes nothing** (2026-09-12). The file used to
-carry the date in its name, so an idle vault still produced a new one every
-night — and age output differs on every run even for identical input, so nothing
-deduplicated it: roughly 330 MB of repository history a year for a vault nobody
-touched. `vaults/manifest.json` now records a SHA-256 of each export with its
-timestamp removed, and a vault whose digest has not moved is not re-encrypted.
-Growth follows what you actually change.
-
-The files written before that date keep their dated names. Nothing here deletes
-a backup, including one belonging to an account that no longer exists.
-
-Chosen 2026-09-11 over Hetzner object storage, which would have been a genuinely
-independent fourth provider but bills per bucket. GitHub is free and is neither
-Cloudflare nor Neon, which is what §2.4 asks for.
-
-**The cost of that choice, stated:** GitHub already holds the deploy token and
-runs the deploys, so a GitHub account suspension takes the code and the backups
-together — exactly the correlation [STORAGE.md §2.1](history/STORAGE.md) argues against
-for D1. It is a weaker answer than a fourth provider. What keeps it acceptable is
-that the backups are ciphertext under an identity GitHub has never seen, and that
-`git clone` puts a full copy on any machine that asks. **Clone it somewhere
-offline.** Until you have, this is one provider away from being the only copy.
-
-The job holds the age *recipient* and a deploy key scoped write-only to the
-backups repository. It can write a backup; it cannot read one back, and it cannot
-touch anything else.
+The first build pushed the export from GitHub Actions to a private repository
+and skipped nights that changed nothing
+([history/BACKUP-github.md](history/BACKUP-github.md)). Writing from the Worker
+removes the deploy token, the second repository and the workflow. The cost is
+that the snapshots sit on the same Cloudflare account as the vault; a second
+destination is on the [roadmap](ROADMAP.md).

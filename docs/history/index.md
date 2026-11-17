@@ -24,3 +24,4 @@ Design records from the first build, kept for the reasoning. The current shape i
 | [STORAGE.md](STORAGE.md) | External Postgres for the exit path | superseded: D1, with the nightly export as the exit path |
 | [FLATTENING.md](FLATTENING.md) | Organizations removed, flattened into folders | yes |
 | [MIGRATION.md](MIGRATION.md) | A server-side claim flow from Vaultwarden | superseded: the cutover was a client-side `bw import` |
+| [BACKUP-github.md](BACKUP-github.md) | Nightly export to a private GitHub repository from Actions | superseded: a cron trigger in the Worker writes to R2 |

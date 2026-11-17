@@ -68,7 +68,8 @@ one transaction.
 
 ## Deploy rule
 
-`wrangler.jsonc` names no custom hostname. The Worker lives on `workers.dev`
-until the Vaultwarden it replaces is exported, backed up and deleted. The
-project was frozen once because a documentation commit re-bound
-`vault.amirsalmani.com`; that cannot recur if the name is not in the file.
+`wrangler.jsonc` binds `vault.amirsalmani.com` as a `custom_domain` since
+2026-11-15, after the Vaultwarden it replaced was exported, archived and
+deleted. A `custom_domain` route takes the DNS record on deploy, which is how
+a documentation commit froze this project once: the name must be free before
+the first deploy, and deploys are from a laptop with GitHub Actions off.

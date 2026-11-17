@@ -6,10 +6,11 @@
 # published suite proving a real client works. Unit tests cannot make it,
 # because they assert the shape we chose.
 #
-# The server must allow exactly this address to register, so start it with
-#   npx wrangler dev --var OWNER_EMAIL:compat@workwarden.invalid
+# The server must allow exactly this address to register, and bw refuses plain
+# HTTP, so start it with
+#   npx wrangler dev --local-protocol https --var OWNER_EMAIL:compat@workwarden.invalid
 # and then
-#   BASE=http://localhost:8787 compat/run.sh
+#   BASE=https://localhost:8787 compat/run.sh
 set -euo pipefail
 
 BASE="${BASE:?set BASE to the server URL}"

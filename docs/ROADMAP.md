@@ -4,44 +4,44 @@ title: workwarden roadmap
 description: What is open, who it waits on, and what would settle it. Updated as things close.
 status: active
 created: 2026-09-12
-timestamp: 2026-11-15
+timestamp: 2026-11-17
 tags: [workwarden, roadmap, open]
 related:
   - ASSURANCE.md
   - BACKUP.md
-  - history/PHASE0.md
+  - CLIENTS.md
 ---
 
 # workwarden roadmap
 
 ## Now
 
-1. **Cutover.** Export the owner's vault from Vaultwarden (`bw export` or the
-   web vault, plain JSON), register the one account on workwarden, `bw import
-   bitwardenjson`, verify item counts and a few decryptions from a second
-   client. Then, and only then, retire Vaultwarden on rhinocloud-de-1 and bind
-   `vault.amirsalmani.com` here.
-2. **A home for the age identity.** The Worker encrypts snapshots to
-   `workwarden-backup-age`; its private half must exist somewhere that is not
-   this account and not the vault it restores. Paper is enough.
-3. **Rate limit on login.** One Cloudflare WAF rule on
-   `/identity/connect/token`, replacing the deleted throttle object.
+1. **Rate limit on login.** One Cloudflare WAF rule on
+   `/identity/connect/token`. The free plan allows one such rule.
+2. **A second snapshot destination.** The nightly export sits in R2 on the
+   account that runs the vault. One copy elsewhere, pulled rather than pushed,
+   so the Worker keeps holding the recipient only.
 
 ## Next
 
-- Re-enable GitHub Actions once a deploy token with narrow scope exists; until
-  then deploys are from a laptop.
-- A second snapshot destination off this Cloudflare account.
+- GitHub Actions stays off; deploys are from a laptop. Turn it back on only
+  with a deploy token scoped to this Worker.
+- `compatibility_date` is capped by the workerd that miniflare bundles; raise it
+  when wrangler does.
 
 ## Deliberately not doing
 
 Organizations, Sends, attachments, emergency access, server-side 2FA, SSO,
-email, a web vault, live push. [SHAVE.md](SHAVE.md).
+email, a web vault, live push, a second user. [SHAVE.md](SHAVE.md).
 
 ## Closed
 
-- 2026-11-15: Phase 0's two open questions — server-side KDF cost and `/sync`
-  serialization — closed by [SHAVE.md](SHAVE.md).
-- 2026-11-15: Neon and Hyperdrive retired; D1 holds the vault.
-- 2026-09-13: Vaultwarden on rhinocloud-de-1 took `vault.amirsalmani.com`
-  back; this project froze. Revived 2026-11-15 with no custom hostname.
+- 2026-11-17: the backup identity has a home off the laptop and off the account.
+- 2026-11-16: extension, iOS, Android, macOS, `bw` and `rbw` all verified on the
+  live vault. What each needed is in [CLIENTS.md](CLIENTS.md).
+- 2026-11-15: cutover. The owner's vault imported (319 items), Vaultwarden on
+  rhinocloud-de-1 archived and retired, `vault.amirsalmani.com` bound here.
+- 2026-11-15: Neon and Hyperdrive retired; D1 holds the vault. Phase 0's two
+  open questions closed by [SHAVE.md](SHAVE.md).
+- 2026-09-13: a documentation commit redeployed a config that re-bound the live
+  hostname and took it from Vaultwarden; the project froze until the revival.
