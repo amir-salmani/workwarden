@@ -140,7 +140,7 @@ reading above the limit.
 
 So the alarming reading is probably the wrong one, and the KDF decision stands
 until the metric is understood rather than because of it
-([ROADMAP.md](ROADMAP.md) §1).
+([ROADMAP.md](../ROADMAP.md) §1).
 
 ## What Phase 0 is not
 

@@ -7,9 +7,9 @@ created: 2026-11-15
 timestamp: 2026-11-15
 tags: [workwarden, d1, free-plan, single-user]
 related:
-  - FEASIBILITY.md
-  - STORAGE.md
-  - STACK.md
+  - history/FEASIBILITY.md
+  - history/STORAGE.md
+  - history/STACK.md
   - BACKUP.md
   - generated/routes.md
 ---
@@ -36,7 +36,7 @@ still does.
 
 ## Storage: D1, not Postgres, not KV
 
-[STORAGE.md](STORAGE.md) chose external Postgres on the exit path. The exit path
+[STORAGE.md](history/STORAGE.md) chose external Postgres on the exit path. The exit path
 is now the nightly export ([BACKUP.md](BACKUP.md)), which is restorable
 anywhere a Bitwarden client can import, so the database only has to be free,
 consistent and dumpable.
@@ -61,7 +61,7 @@ one transaction.
    Iterating further buys nothing — what protects the stored verifier against a
    database dump is the pepper, which lives in a Worker secret. The server runs
    10k iterations plus HMAC with the pepper: ~3 ms, measured in
-   [PHASE0.md](PHASE0.md).
+   [PHASE0.md](history/PHASE0.md).
 2. **Sync is built in the Worker.** 320 items is roughly 300 KB of JSON and
    1–3 ms of CPU. The D1 round-trip is I/O and does not count against the
    budget.

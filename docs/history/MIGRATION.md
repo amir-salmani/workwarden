@@ -7,11 +7,11 @@ created: 2026-09-11
 timestamp: 2026-09-12
 tags: [workwarden, migration, vaultwarden]
 related:
-  - BACKUP.md
+  - ../BACKUP.md
   - FEASIBILITY.md
 ---
 
-> Superseded 2026-11-15: the claim flow this describes no longer exists. The cutover from Vaultwarden is a client-side `bw import` of a Vaultwarden export into the one registered account — [SHAVE.md](SHAVE.md).
+> Superseded 2026-11-15: the claim flow this describes no longer exists. The cutover from Vaultwarden is a client-side `bw import` of a Vaultwarden export into the one registered account — [SHAVE.md](../SHAVE.md).
 
 # Moving a vault from Vaultwarden
 
@@ -129,7 +129,7 @@ bw list items | jq 'length'
 [FEASIBILITY.md §2.4](FEASIBILITY.md) said the existing Vaultwarden stays the
 system of record until workwarden has earned the job over months. **That was
 traded on 2026-09-11**, deliberately, for a verified restore path instead: a
-nightly encrypted export ([BACKUP.md](BACKUP.md)) and a Vaultwarden bundle in the
+nightly encrypted export ([BACKUP.md](../BACKUP.md)) and a Vaultwarden bundle in the
 backups repo that has been booted and checked, not merely written
 ([STACK.md §6](STACK.md)).
 

@@ -9,7 +9,7 @@ tags: [workwarden, roadmap, open]
 related:
   - ASSURANCE.md
   - BACKUP.md
-  - PHASE0.md
+  - history/PHASE0.md
 ---
 
 # workwarden roadmap

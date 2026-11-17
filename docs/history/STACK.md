@@ -12,7 +12,7 @@ related:
   - PHASE0.md
 ---
 
-> 2026-11-15: Hyperdrive, Neon, postgres.js and both Durable Objects are gone — [SHAVE.md](SHAVE.md). The rest of this record still holds.
+> 2026-11-15: Hyperdrive, Neon, postgres.js and both Durable Objects are gone — [SHAVE.md](../SHAVE.md). The rest of this record still holds.
 
 # workwarden — tech stack
 
@@ -197,7 +197,7 @@ before there is code to protect:
   weaker evidence than a number. `[reported]`
 - **Export destination: a private GitHub repository**, age-encrypted, tracked
   here as the `backups/` submodule and written nightly by the `backup` workflow
-  ([BACKUP.md](BACKUP.md)). CI holds the age *recipient* only, so the pipeline
+  ([BACKUP.md](../BACKUP.md)). CI holds the age *recipient* only, so the pipeline
   that writes the backups cannot read them. `[confirmed]`
 
 ### A conflict worth naming

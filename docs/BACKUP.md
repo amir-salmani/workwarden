@@ -7,16 +7,16 @@ created: 2026-09-11
 timestamp: 2026-09-12
 tags: [workwarden, backup, export, restore]
 related:
-  - FEASIBILITY.md
-  - STORAGE.md
-  - STACK.md
+  - history/FEASIBILITY.md
+  - history/STORAGE.md
+  - history/STACK.md
 ---
 
 > 2026-11-15: the export now lands in R2 nightly, written by a cron trigger in the Worker and age-encrypted there (`src/snapshot.ts`); restore is `scripts/restore.mjs`. The format and the reasoning below are unchanged. Neon no longer exists.
 
 # The backup
 
-[FEASIBILITY.md §2.4](FEASIBILITY.md) makes this non-negotiable: an automated
+[FEASIBILITY.md §2.4](history/FEASIBILITY.md) makes this non-negotiable: an automated
 encrypted export, in a standard format, landing somewhere neither Cloudflare nor
 Neon controls. Not a database dump — a dump is restorable only into the thing it
 came from, which is no exit at all.
@@ -74,7 +74,7 @@ The backup file **is not sufficient on its own**.
 1. the `.age` backup
 2. the **`AUTH_PEPPER`** it was taken under
 
-The stored password hash is peppered ([FEASIBILITY.md §2.1](FEASIBILITY.md)), so
+The stored password hash is peppered ([FEASIBILITY.md §2.1](history/FEASIBILITY.md)), so
 restoring under a different pepper produces an account nobody can log into. The
 vault data would still be intact and the master password would still decrypt it,
 but authentication would have to be rebuilt by hand.
@@ -152,7 +152,7 @@ Cloudflare nor Neon, which is what §2.4 asks for.
 
 **The cost of that choice, stated:** GitHub already holds the deploy token and
 runs the deploys, so a GitHub account suspension takes the code and the backups
-together — exactly the correlation [STORAGE.md §2.1](STORAGE.md) argues against
+together — exactly the correlation [STORAGE.md §2.1](history/STORAGE.md) argues against
 for D1. It is a weaker answer than a fourth provider. What keeps it acceptable is
 that the backups are ciphertext under an identity GitHub has never seen, and that
 `git clone` puts a full copy on any machine that asks. **Clone it somewhere

@@ -35,9 +35,9 @@ only UI. Deployed at `workwarden.cfworkerofabrinocloud.workers.dev` since
 - [ASSURANCE.md](ASSURANCE.md) — no audit, and what is done instead.
 - [generated/routes.md](generated/routes.md) — the 28 routes, read off the app.
 
-History, kept: [FEASIBILITY.md](FEASIBILITY.md), [PHASE0.md](PHASE0.md),
-[STACK.md](STACK.md), [STORAGE.md](STORAGE.md) (superseded),
-[FLATTENING.md](FLATTENING.md), [MIGRATION.md](MIGRATION.md) (superseded).
+History, kept: [FEASIBILITY.md](history/FEASIBILITY.md), [PHASE0.md](history/PHASE0.md),
+[STACK.md](history/STACK.md), [STORAGE.md](history/STORAGE.md) (superseded),
+[FLATTENING.md](history/FLATTENING.md), [MIGRATION.md](history/MIGRATION.md) (superseded).
 
 ## Why it was frozen
 

@@ -11,7 +11,7 @@ related:
   - STACK.md
 ---
 
-> Superseded 2026-11-15 by [SHAVE.md](SHAVE.md): the vault lives in D1. Kept as the record of why Postgres was chosen first.
+> Superseded 2026-11-15 by [SHAVE.md](../SHAVE.md): the vault lives in D1. Kept as the record of why Postgres was chosen first.
 
 # Where the vault actually lives
 

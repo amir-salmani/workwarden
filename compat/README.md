@@ -7,13 +7,13 @@ created: 2026-09-10
 timestamp: 2026-09-10
 tags: [workwarden, compat, bitwarden]
 related:
-  - ../docs/FEASIBILITY.md
-  - ../docs/STACK.md
+  - ../docs/history/FEASIBILITY.md
+  - ../docs/history/STACK.md
 ---
 
 # Bitwarden CLI compatibility
 
-[FEASIBILITY.md §2.2](../docs/FEASIBILITY.md) names "a published test suite
+[FEASIBILITY.md §2.2](../docs/history/FEASIBILITY.md) names "a published test suite
 proving client compatibility" as one of three things nobody in this niche has
 done. This is that suite. `bitwarden-crypto.mjs` reproduces Bitwarden's
 client-side key derivation so an account can be created that a stock

@@ -7,8 +7,8 @@ created: 2026-09-12
 timestamp: 2026-09-12
 tags: [workwarden, security, audit, assurance]
 related:
-  - FEASIBILITY.md
-  - STACK.md
+  - history/FEASIBILITY.md
+  - history/STACK.md
 ---
 
 # Assurance
@@ -109,7 +109,7 @@ That is already what `README.md` says, and it stays.
 1. **Keep the blast radius small.** Personal use, one account, no multi-tenancy
    — stated in the README, not merely intended. A bug here loses one vault.
 2. **Keep the exit open.** Encrypted exports off-platform in standard Bitwarden
-   JSON ([BACKUP.md](BACKUP.md), [MIGRATION.md](MIGRATION.md)), plus a bootable
+   JSON ([BACKUP.md](BACKUP.md), [MIGRATION.md](history/MIGRATION.md)), plus a bootable
    Vaultwarden restore bundle. Assurance you cannot buy, you substitute with
    recoverability: the question stops being *will it fail* and becomes *what
    does failing cost*.

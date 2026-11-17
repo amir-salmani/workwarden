@@ -8,7 +8,7 @@ timestamp: 2026-09-12
 tags: [workwarden, organizations, folders, migration]
 related:
   - MIGRATION.md
-  - BACKUP.md
+  - ../BACKUP.md
 ---
 
 # Organizations removed
@@ -40,7 +40,7 @@ So the change is two steps, and the order is not negotiable:
    every original.
 
 Running step 2 first destroys the data. There is no recovery inside the
-database; only [the backup](BACKUP.md) would have it.
+database; only [the backup](../BACKUP.md) would have it.
 
 ## What is lost
 
