@@ -3,9 +3,8 @@ import type { User } from '../users.ts'
 
 export const ACCESS_TOKEN_TTL = 3600
 
-// HS256 for now. Vaultwarden signs RS256 with a generated keypair; whether stock
-// clients verify the signature or treat the token as opaque is still open
-// (STACK.md §6) and decides whether HS256 can stay. It costs 1 ms (PHASE0.md).
+// HS256. Clients treat the access token as opaque; the extension, both mobile
+// apps, bw and rbw all run against it.
 const ALG = 'HS256'
 
 type AccessClaims = {
@@ -57,38 +56,4 @@ export async function verifyAccessToken(
 
 export function randomToken(): string {
   return btoa(String.fromCharCode(...crypto.getRandomValues(new Uint8Array(48))))
-}
-
-/** A download link for a Send's file, good for five minutes and one file. */
-const SEND_FILE_TTL = 300
-
-export function issueSendFileToken(
-  secret: string,
-  issuer: string,
-  sendId: string,
-  fileId: string,
-): Promise<string> {
-  const now = Math.floor(Date.now() / 1000)
-  return new SignJWT({})
-    .setProtectedHeader({ alg: ALG })
-    .setIssuer(issuer)
-    .setSubject(`${sendId}/${fileId}`)
-    .setNotBefore(now)
-    .setExpirationTime(now + SEND_FILE_TTL)
-    .sign(new TextEncoder().encode(secret))
-}
-
-export async function sendFileTokenOk(
-  secret: string,
-  issuer: string,
-  token: string,
-  sendId: string,
-  fileId: string,
-): Promise<boolean> {
-  try {
-    const { payload } = await jwtVerify(token, new TextEncoder().encode(secret), { issuer })
-    return payload.sub === `${sendId}/${fileId}`
-  } catch {
-    return false
-  }
 }

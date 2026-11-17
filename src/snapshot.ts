@@ -44,7 +44,7 @@ const VIEW_ONLY = [
   'permissions',
 ]
 
-export async function buildExport(db: Db, user: User): Promise<VaultExport> {
+async function buildExport(db: Db, user: User): Promise<VaultExport> {
   const [folders, ciphers] = await db.batch([
     db.prepare('select * from folders where user_id = ? order by id').bind(user.id),
     db.prepare('select * from ciphers where user_id = ? order by id').bind(user.id),

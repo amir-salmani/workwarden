@@ -4,10 +4,6 @@ dist/
 .dev.vars
 *.log
 .env
-.neon
-
-# Vendored agent skills; skills-lock.json pins them, `npx neon skills` refetches.
-.claude/skills/
 
 # Vaultwarden instance backup from rhinocloud-de-1, age-encrypted. Never committed.
 vw-de1/
